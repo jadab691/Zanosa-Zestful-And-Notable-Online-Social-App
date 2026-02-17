@@ -1,3 +1,4 @@
+// Inbox.tsx
 import React, { useState, useRef, useEffect } from "react";
 import {
   View,
@@ -11,27 +12,56 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
 } from "react-native";
+import { io, Socket } from "socket.io-client";
+
+// Replace with your PC IP for testing on phone
+const SOCKET_SERVER_URL = "http://192.168.1.183:3000";
+
+interface Message {
+  id: string;
+  text: string;
+  timestamp: string;
+}
 
 const Inbox = () => {
-  const [messages, setMessages] = useState([
-    { sender: "John Doe", text: "Hey! How are you?" },
-    { sender: "Me", text: "I'm good, thanks! How about you?" },
-    { sender: "John Doe", text: "Doing great. What are you up to?" },
-    { sender: "Me", text: "Just working on a project." },
-    { sender: "John Doe", text: "Cool! Keep it up." },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const scrollViewRef = useRef<ScrollView>(null);
+  const socketRef = useRef<Socket | null>(null);
 
-  const [input, setInput] = useState(""); // store text input
-  const scrollViewRef = useRef<ScrollView>(null); // scroll reference
+  useEffect(() => {
+    // Connect to backend
+    socketRef.current = io(SOCKET_SERVER_URL);
 
-  // Send a message
+    // Receive all previous messages
+    socketRef.current.on("all_messages", (msgs: Message[]) => {
+      setMessages(msgs);
+    });
+
+    // Listen for new messages
+    socketRef.current.on("message", (msg: Message) => {
+      setMessages((prev) => [...prev, msg]);
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, []);
+
   const handleSend = () => {
-    if (input.trim() === "") return; // ignore empty messages
-    setMessages([...messages, { sender: "Me", text: input }]); // add message
-    setInput(""); // clear input
+    if (!input.trim()) return;
+
+    const msg: Message = {
+      id: socketRef.current?.id || "",
+      text: input,
+      timestamp: new Date().toLocaleTimeString(),
+    };
+
+    socketRef.current?.emit("message", msg);
+    setInput("");
   };
 
-  // Scroll to the latest message automatically
+  // Auto-scroll to bottom when messages update
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
@@ -40,40 +70,43 @@ const Inbox = () => {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={5} // adjust if needed
+      keyboardVerticalOffset={5}
     >
-      {/* Tap outside to close keyboard */}
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={{ flex: 1 }}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerText}>Jefry Epstine</Text>
+            <Text style={styles.headerText}>Zefry Epstine</Text>
           </View>
 
           {/* Messages */}
           <ScrollView
             ref={scrollViewRef}
-            contentContainerStyle={{ paddingBottom: 100 }} // leave space for input
+            contentContainerStyle={{ paddingBottom: 100 }}
             showsVerticalScrollIndicator={false}
           >
-            {messages.map((msg, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.messageBubble,
-                  msg.sender === "Me" ? styles.myMessage : styles.theirMessage,
-                ]}
-              >
-                <Text
+            {messages.map((msg, index) => {
+              const isMe = msg.id === socketRef.current?.id;
+              return (
+                <View
+                  key={index}
                   style={[
-                    styles.messageText,
-                    msg.sender !== "Me" && styles.theirMessageText,
+                    styles.messageBubble,
+                    isMe ? styles.myMessage : styles.theirMessage,
                   ]}
                 >
-                  {msg.text}
-                </Text>
-              </View>
-            ))}
+                  <Text
+                    style={[
+                      styles.messageText,
+                      !isMe && styles.theirMessageText,
+                    ]}
+                  >
+                    {msg.text}
+                  </Text>
+                  
+                </View>
+              );
+            })}
           </ScrollView>
 
           {/* Input Box */}
@@ -97,7 +130,7 @@ const Inbox = () => {
 
 export default Inbox;
 
-// Simple beginner-friendly styles
+// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -108,7 +141,7 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    backgroundColor: "#b1bff3",
+    backgroundColor: "#d4d9ea",
     padding: 15,
     borderRadius: 10,
     marginBottom: 15,
@@ -118,6 +151,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     color: "#3e3d3d",
+    textAlign: "center",
   },
 
   messageBubble: {
@@ -138,21 +172,18 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     alignSelf: "flex-start",
   },
-
+  theirMessageText: {
+    color: "#333",
+  },
   messageText: {
     fontSize: 16,
     color: "#fff",
   },
-
-  theirMessageText: {
-    color: "#000",
-  },
-
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     padding: 10,
-    backgroundColor: "#fff",
+    backgroundColor: "#e7dfdf",
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "#ddd",

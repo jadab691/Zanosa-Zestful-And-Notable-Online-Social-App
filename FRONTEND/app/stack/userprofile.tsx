@@ -20,7 +20,7 @@ const Userprofile = () => {
           source={{ uri: "https://i.pravatar.cc/150?img=12" }}
           style={styles.avatar}
         />
-
+ 
         <View style={styles.statsContainer}>
           <View style={styles.statBox}>
             <Text style={styles.statNumber}>0</Text>

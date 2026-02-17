@@ -88,6 +88,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
     paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+    marginHorizontal: 15,
+
   },
   header: {
     flexDirection: "row",
@@ -179,10 +181,10 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: "800" },
   viewAll: { color: "#318CE7", fontWeight: "600" },
   grid: {
+    paddingTop: 20,
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: 20,
-    marginTop: 20,
+    gap: 15,
     justifyContent: "space-between",
   },
   gridImage: {

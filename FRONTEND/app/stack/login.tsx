@@ -11,11 +11,42 @@ import {
   TouchableOpacity,
   View,
   ScrollView,
+  Alert,
 } from "react-native";
 
 export default function LoginScreen() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
+
   const router = useRouter();
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Please fill all fields");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://192.168.1.192:3000/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert("Success", data.message);
+        router.push("/(tab)"); // Navigate to main app
+      } else {
+        Alert.alert("Error", data.message);
+      }
+    } catch (err) {
+      console.log(err);
+      Alert.alert("Error", "Something went wrong");
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -62,6 +93,8 @@ export default function LoginScreen() {
                 placeholderTextColor="#A0AABF"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
               />
 
               <Text style={styles.label}>Password</Text>
@@ -71,6 +104,8 @@ export default function LoginScreen() {
                   placeholder="Enter your password"
                   placeholderTextColor="#A0AABF"
                   secureTextEntry={!passwordVisible}
+                  value={password}
+                  onChangeText={setPassword}
                 />
                 <TouchableOpacity
                   onPress={() => setPasswordVisible(!passwordVisible)}
@@ -85,7 +120,7 @@ export default function LoginScreen() {
             </View>
 
             {/* Login Button */}
-            <TouchableOpacity style={styles.loginBtn} onPress={() => router.push("/(tab)")}>
+            <TouchableOpacity style={styles.loginBtn} onPress={handleLogin}>
               <Text style={styles.loginBtnText}>Login</Text>
             </TouchableOpacity>
 
@@ -108,48 +143,14 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-
-  inner: {
-    paddingHorizontal: 25,
-  },
-
-  logoSection: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
-
-  brandName: {
-    fontSize: 22,
-    fontWeight: "800",
-  },
-
-  welcomeSection: {
-    alignItems: "center",
-    marginBottom: 30,
-  },
-
-  welcomeTitle: {
-    fontSize: 28,
-    fontWeight: "800",
-    marginBottom: 5,
-  },
-
-  welcomeSubtitle: {
-    fontSize: 15,
-    color: "#7D8699",
-  },
-
-  form: {
-    marginBottom: 20,
-  },
-
-  label: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-    marginTop: 15,
-  },
-
+  inner: { paddingHorizontal: 25 },
+  logoSection: { alignItems: "center", marginBottom: 20 },
+  brandName: { fontSize: 22, fontWeight: "800" },
+  welcomeSection: { alignItems: "center", marginBottom: 30 },
+  welcomeTitle: { fontSize: 28, fontWeight: "800", marginBottom: 5 },
+  welcomeSubtitle: { fontSize: 15, color: "#7D8699" },
+  form: { marginBottom: 20 },
+  label: { fontSize: 14, fontWeight: "600", marginBottom: 8, marginTop: 15 },
   input: {
     height: 55,
     borderWidth: 1,
@@ -157,7 +158,6 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     paddingHorizontal: 20,
   },
-
   passwordContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -167,12 +167,7 @@ const styles = StyleSheet.create({
     height: 55,
     paddingRight: 20,
   },
-
-  passwordInput: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-
+  passwordInput: { flex: 1, paddingHorizontal: 20 },
   loginBtn: {
     backgroundColor: "#318CE7",
     height: 60,
@@ -182,24 +177,8 @@ const styles = StyleSheet.create({
     elevation: 4,
     marginTop: 10,
   },
-
-  loginBtnText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "700",
-  },
-
-  footer: {
-    marginTop: 30,
-    alignSelf: "center",
-  },
-
-  footerText: {
-    color: "#7D8699",
-  },
-
-  signUpLink: {
-    color: "#318CE7",
-    fontWeight: "700",
-  },
+  loginBtnText: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  footer: { marginTop: 30, alignSelf: "center" },
+  footerText: { color: "#7D8699" },
+  signUpLink: { color: "#318CE7", fontWeight: "700" },
 });

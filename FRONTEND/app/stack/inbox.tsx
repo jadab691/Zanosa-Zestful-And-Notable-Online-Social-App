@@ -15,7 +15,7 @@ import {
 import { io, Socket } from "socket.io-client";
 
 // Replace with your PC IP for testing on phone
-const SOCKET_SERVER_URL = "http://192.168.1.183:3000";
+const SOCKET_SERVER_URL = "http://192.168.1.192:3000";
 
 interface Message {
   id: string;
@@ -76,7 +76,7 @@ const Inbox = () => {
         <View style={{ flex: 1 }}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerText}>Zefry Epstine</Text>
+            <Text style={styles.headerText}>Zefry Epstine.</Text>
           </View>
 
           {/* Messages */}
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 16,
-    color: "#fff",
+    color: "#e5dddd",
   },
   inputContainer: {
     flexDirection: "row",

@@ -1,7 +1,8 @@
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Link, router } from "expo-router";
+import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Reusable Menu Item
 // @ts-ignore
@@ -20,7 +21,11 @@ const Menu = () => {
       <Text style={styles.header}>Menu</Text>
 
       {/* Menu Items */}
-      <MenuItem icon="person-outline" label="Profile" onPress={() => router.push("/stack/profile")} />
+      <MenuItem
+        icon="person-outline"
+        label="Profile"
+        onPress={() => router.push("/stack/profile")}
+      />
       <MenuItem icon="settings-outline" label="Settings" onPress={undefined} />
       <MenuItem
         icon="information-circle-outline"
@@ -33,11 +38,26 @@ const Menu = () => {
         label="Report a Problem"
         onPress={undefined}
       />
+
+      {/* Logout */}
       <MenuItem
         icon="log-out-outline"
         label="Logout"
         color="red"
-        onPress={() => router.push("/stack/login")}
+        onPress={async () => {
+          try {
+            // Clear stored user info
+            await AsyncStorage.removeItem("userEmail");
+            await AsyncStorage.removeItem("userName");
+           
+
+            // Navigate to login
+            router.push("/stack/login");
+          } catch (err) {
+            console.log("Logout error:", err);
+            alert("Could not log out. Try again.");
+          }
+        }}
       />
     </View>
   );

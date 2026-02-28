@@ -13,6 +13,8 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
+import BASE_URL from "@/config/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -28,7 +30,7 @@ export default function LoginScreen() {
     }
 
     try {
-      const response = await fetch("http://192.168.1.192:3000/auth/login", {
+      const response = await fetch(`${BASE_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -37,7 +39,22 @@ export default function LoginScreen() {
       const data = await response.json();
 
       if (response.ok) {
+        // Store email in AsyncStorage
+        await AsyncStorage.setItem("userEmail", email); // <--- store email
+        // Optionally store name too
+        await AsyncStorage.setItem("userName", data.user.name);
+
+        //check if email is stored correctly
+        const test = await AsyncStorage.getItem("userEmail");
+        console.log("Saved email:", test);
+        //check if name is stored correctly
+        const testName = await AsyncStorage.getItem("userName");
+        console.log("Saved name:", testName);
+
         Alert.alert("Success", data.message);
+
+        // tiny delay to make sure write finishes
+        await new Promise((resolve) => setTimeout(resolve, 50));
         router.push("/(tab)"); // Navigate to main app
       } else {
         Alert.alert("Error", data.message);
@@ -47,7 +64,6 @@ export default function LoginScreen() {
       Alert.alert("Error", "Something went wrong");
     }
   };
-
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView

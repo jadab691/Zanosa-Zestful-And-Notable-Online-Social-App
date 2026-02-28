@@ -5,15 +5,13 @@ import mongoose from "mongoose";
 import cors from "cors";
 import { initSocket } from "./sockets/chat.socket.js";
 import authRoutes from "./routes/auth.routes.js";
+import userRoutes from "./routes/user.routes.js";
 
 const PORT = 3000;
 const app = express();
 
 app.use(cors());
 app.use(express.json());
-
-
-
 
 // Connect to MongoDB
 mongoose
@@ -24,11 +22,8 @@ mongoose
 // Routes
 app.use("/auth", authRoutes);
 
-
-
-
-
-
+// Mount user routes at /user
+app.use("/user", userRoutes);
 
 // Initialize Socket.IO
 const server = createServer(app);

@@ -13,6 +13,7 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
+import BASE_URL from "@/config/api";
 
 export default function SignupScreen() {
   const [name, setName] = useState("");
@@ -29,7 +30,7 @@ export default function SignupScreen() {
     }
 
     try {
-      const response = await fetch("http://192.168.1.192:3000/auth/signup", {
+      const response = await fetch(`${BASE_URL}/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),

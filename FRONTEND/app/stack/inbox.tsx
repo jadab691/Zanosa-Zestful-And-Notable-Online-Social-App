@@ -1,4 +1,5 @@
 // Inbox.tsx
+import BASE_URL from "@/config/api";
 import React, { useState, useRef, useEffect } from "react";
 import {
   View,
@@ -15,7 +16,7 @@ import {
 import { io, Socket } from "socket.io-client";
 
 // Replace with your PC IP for testing on phone
-const SOCKET_SERVER_URL = "http://192.168.1.192:3000";
+const SOCKET_SERVER_URL = `${BASE_URL}`;
 
 interface Message {
   id: string;

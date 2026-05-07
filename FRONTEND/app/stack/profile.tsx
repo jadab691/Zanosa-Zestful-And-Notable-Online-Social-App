@@ -15,38 +15,31 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 
-import BASE_URL from "@/config/api";
+import { BASE_URL } from "../../config/api";
 
 const { width } = Dimensions.get("window");
 
 export default function ProfileScreen() {
   const router = useRouter();
   const [name, setName] = useState("Example User");
+  const [posts, setPosts] = useState<any[]>([]);
 
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        // First, try to get the stored name
         const storedName = await AsyncStorage.getItem("userName");
-        console.log("ProfileScreen: storedName =", storedName);
+        if (storedName) setName(storedName);
 
-        if (storedName) {
-          setName(storedName);
-          return;
-        }
+        const token = await AsyncStorage.getItem("token");
+        if (!token) return;
 
-        // If name not stored, fetch from backend using email
-        const email = await AsyncStorage.getItem("userEmail");
-        console.log("ProfileScreen: email =", email);
-        if (!email) return;
-
-        const response = await fetch(`${BASE_URL}/user/profile?email=${email}`);
-        const data = await response.json();
-        console.log("ProfileScreen: backend data =", data);
-
-        if (data?.name) {
-          setName(data.name);
-          await AsyncStorage.setItem("userName", data.name);
+        // Fetch user posts
+        const res = await fetch(`${BASE_URL}/api/posts/my-posts`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const postData = await res.json();
+        if (Array.isArray(postData)) {
+          setPosts(postData);
         }
       } catch (err) {
         console.log("Error loading profile:", err);
@@ -55,13 +48,6 @@ export default function ProfileScreen() {
 
     loadProfile();
   }, []);
-
-  const myPostedImages = [
-    "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=60",
-    "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=800&q=60",
-    "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=60",
-    "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=800&q=60",
-  ];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -93,10 +79,10 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.grid}>
-          {myPostedImages.map((imgUri, index) => (
+          {posts.map((post, index) => (
             <Image
-              key={index}
-              source={{ uri: imgUri }}
+              key={post._id || index}
+              source={{ uri: post.image }}
               style={styles.gridImage}
             />
           ))}

@@ -13,7 +13,7 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-import BASE_URL from "@/config/api";
+import { BASE_URL } from "@/config/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function LoginScreen() {
@@ -30,19 +30,22 @@ export default function LoginScreen() {
     }
 
     try {
-      const response = await fetch(`${BASE_URL}/api/login`, {
+      const response = await fetch(`${BASE_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
+      
 
       if (response.ok) {
         // Store email in AsyncStorage
-        await AsyncStorage.setItem("userEmail", email); // <--- store email
+        await AsyncStorage.setItem("userEmail", email); 
         // Optionally store name too
         await AsyncStorage.setItem("userName", data.user.name);
+        //store token for authenticated requests
+        await AsyncStorage.setItem("token", data.token);
 
         //check if email is stored correctly
         const test = await AsyncStorage.getItem("userEmail");

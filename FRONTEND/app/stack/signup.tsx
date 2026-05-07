@@ -13,7 +13,7 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-import BASE_URL from "@/config/api";
+import { BASE_URL } from "@/config/api";
 
 export default function SignupScreen() {
   const [name, setName] = useState("");
@@ -26,11 +26,11 @@ export default function SignupScreen() {
   const handleSignup = async () => {
     if (!name || !email || !password) {
       Alert.alert("Error", "Please fill all fields");
-      return; 
+      return;
     }
 
     try {
-      const response = await fetch(`${BASE_URL}/api/signup`, {
+      const response = await fetch(`${BASE_URL}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, password }),

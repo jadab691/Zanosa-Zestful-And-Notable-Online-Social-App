@@ -9,9 +9,11 @@ import {
 import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
+import { useRouter } from "expo-router"; 
 
 const Home = () => {
-  const handlePost = () => alert("Post button clicked");
+  const router = useRouter();
+  const handlePost = () => router.push("/stack/post");
   const handleLike = () => alert("You liked this!");
   const handleComment = () => alert("Comment clicked!");
 

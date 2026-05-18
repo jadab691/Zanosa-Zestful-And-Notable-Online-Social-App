@@ -5,20 +5,98 @@ import {
   Image,
   ScrollView,
   StyleSheet,
+  TextInput,
+  Alert,
 } from "react-native";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
 import { useRouter } from "expo-router"; 
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { BASE_URL } from "../../config/api"; 
 
 const Home = () => {
   const router = useRouter();
-  const handlePost = () => router.push("/stack/post");
-  const handleLike = () => alert("You liked this!");
-  const handleComment = () => alert("Comment clicked!");
+  const [posts, setPosts] = useState<any[]>([]);
 
-  const renderPost = () => (
-    <View style={styles.postContainer}>
+  const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
+  const [commentText, setCommentText] = useState("");
+
+  const fetchPosts = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+
+      const res = await fetch(`${BASE_URL}/api/posts`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setPosts(data);
+      }
+    } catch (err) {
+      console.log("Error fetching feed:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  const handlePost = () => router.push("/stack/post");
+  
+  const handleLike = async (postId: string) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const res = await fetch(`${BASE_URL}/api/posts/${postId}/like`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const updatedPost = await res.json();
+        setPosts(posts.map((p) => (p._id === postId ? updatedPost : p)));
+      }
+    } catch (err) {
+      console.log("Error liking post:", err);
+    }
+  };
+
+  const handleComment = (postId: string) => {
+    if (activeCommentPostId === postId) {
+      setActiveCommentPostId(null);
+    } else {
+      setActiveCommentPostId(postId);
+      setCommentText("");
+    }
+  };
+
+  const submitComment = async (postId: string) => {
+    if (!commentText.trim()) return;
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const res = await fetch(`${BASE_URL}/api/posts/${postId}/comment`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ text: commentText }),
+      });
+      if (res.ok) {
+        const updatedPost = await res.json();
+        setPosts(posts.map((p) => (p._id === postId ? updatedPost : p)));
+        setCommentText("");
+        setActiveCommentPostId(null);
+      } else {
+        Alert.alert("Error", "Could not add comment");
+      }
+    } catch (err) {
+      console.log("Error adding comment:", err);
+    }
+  };
+
+  const renderPost = (post: any) => (
+    <View key={post._id} style={styles.postContainer}>
       {/* Header */}
       <View style={styles.postHeader}>
         <Image
@@ -28,36 +106,73 @@ const Home = () => {
           style={styles.profileImage}
         />
 
-        <Link href="/stack/userprofile">
-          <Text style={styles.username}>Zefry Epstin</Text>
+        <Link 
+          href={{
+            pathname: "/stack/userprofile",
+            params: { id: post.user?._id, name: post.user?.name }
+          }} 
+          asChild
+        >
+          <Pressable>
+            <Text style={styles.username}>{post.user?.name || "Unknown User"}</Text>
+          </Pressable>
         </Link>
       </View>
 
       {/* Post Image */}
       <Image
         source={{
-          uri: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80",
+          uri: post.image,
         }}
         style={styles.postImage}
       />
 
       {/* Caption */}
       <View style={styles.captionContainer}>
-        <Text>@Caption for the post</Text>
+        <Text style={styles.captionText}>
+          <Text style={styles.usernameBold}>{post.user?.name}</Text> {post.caption}
+        </Text>
       </View>
+
+      {/* Render Comments */}
+      {post.comments && post.comments.length > 0 && (
+        <View style={styles.commentsList}>
+          {post.comments.slice(-2).map((c: any, index: number) => (
+            <Text key={index} style={styles.commentText}>
+              <Text style={styles.usernameBold}>{c.user?.name}</Text> {c.text}
+            </Text>
+          ))}
+          {post.comments.length > 2 && <Text style={styles.viewAllText}>View all {post.comments.length} comments</Text>}
+        </View>
+      )}
 
       {/* Like & Comment */}
       <View style={styles.actionRow}>
-        <Pressable onPress={handleLike} style={styles.actionButton}>
-          <Ionicons name="heart-outline" size={24} color="red" />
-          <Text style={styles.actionText}>Like</Text>
+        <Pressable onPress={() => handleLike(post._id)} style={styles.actionButton}>
+          <Ionicons name={post.likes && post.likes.length > 0 ? "heart" : "heart-outline"} size={24} color={post.likes && post.likes.length > 0 ? "red" : "black"} />
+          <Text style={styles.actionText}>{post.likes?.length || 0}</Text>
         </Pressable>
 
-        <Pressable onPress={handleComment} style={styles.actionButton}>
-          <Ionicons name="chatbubble-outline" size={24} color="blue" />
-          <Text style={styles.actionText}>Comment</Text>
+        <Pressable onPress={() => handleComment(post._id)} style={styles.actionButton}>
+          <Ionicons name="chatbubble-outline" size={24} color="black" />
+          <Text style={styles.actionText}>{post.comments?.length || 0}</Text>
         </Pressable>
       </View>
+
+      {/* Comment Input Box */}
+      {activeCommentPostId === post._id && (
+        <View style={styles.commentInputRow}>
+          <TextInput
+            style={styles.commentInput}
+            placeholder="Add a comment..."
+            value={commentText}
+            onChangeText={setCommentText}
+          />
+          <Pressable onPress={() => submitComment(post._id)}>
+            <Text style={styles.submitCommentText}>Post</Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 
@@ -74,12 +189,7 @@ const Home = () => {
 
       {/* Feed */}
       <ScrollView showsVerticalScrollIndicator={false}>
-        {renderPost()}
-        {renderPost()}
-        {renderPost()}
-        {renderPost()}
-        {renderPost()}
-        {renderPost()}
+        {posts.map(renderPost)}
       </ScrollView>
     </View>
   );
@@ -96,6 +206,9 @@ const styles = StyleSheet.create({
     paddingTop: 40,
     paddingHorizontal: 10,
     backgroundColor: "#f0f0f0",
+    width: "100%",
+    maxWidth: 600,
+    alignSelf: "center",
   },
 
   header: {
@@ -155,18 +268,19 @@ const styles = StyleSheet.create({
 
   postImage: {
     width: "100%",
-    height: 200,
+    height: 350,
   },
 
   captionContainer: {
     padding: 10,
-    height: 100,
+    minHeight: 40,
   },
 
   actionRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
+    paddingHorizontal: 10,
     paddingVertical: 10,
+    gap: 15,
   },
 
   actionButton: {
@@ -176,5 +290,55 @@ const styles = StyleSheet.create({
 
   actionText: {
     marginLeft: 5,
+    fontWeight: "500",
+  },
+  
+  captionText: {
+    fontSize: 14,
+    color: "#333",
+  },
+  
+  usernameBold: {
+    fontWeight: "bold",
+    color: "#000",
+  },
+  
+  commentsList: {
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+  },
+  
+  commentText: {
+    fontSize: 13,
+    color: "#444",
+    marginBottom: 2,
+  },
+  
+  viewAllText: {
+    fontSize: 13,
+    color: "#888",
+    marginTop: 2,
+  },
+  
+  commentInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingBottom: 15,
+  },
+  
+  commentInput: {
+    flex: 1,
+    height: 40,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    marginRight: 10,
+  },
+  
+  submitCommentText: {
+    color: "#318CE7",
+    fontWeight: "600",
   },
 });

@@ -131,7 +131,7 @@ export default function LoginScreen() {
                 >
                   <Ionicons
                     name={passwordVisible ? "eye-outline" : "eye-off-outline"}
-                    size={22}
+                      size={22}
                     color="#7D8699"
                   />
                 </TouchableOpacity>

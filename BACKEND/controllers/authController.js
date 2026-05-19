@@ -80,3 +80,61 @@ export const login = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
+// ================= GET ALL USERS =================
+export const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find({}, "name email _id profilePic");
+    res.status(200).json(users);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ================= GET PROFILE =================
+export const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id || req.user._id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json(user);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ================= UPDATE PROFILE PIC =================
+export const updateProfilePic = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Image is required" });
+    }
+
+    const imageUrl =
+      req.file.path ||
+      req.file.secure_url ||
+      req.file.url;
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id || req.user._id,
+      { profilePic: imageUrl },
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      message: "Profile picture updated successfully",
+      profilePic: user.profilePic,
+      user,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};

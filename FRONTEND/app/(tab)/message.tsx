@@ -1,15 +1,41 @@
-import { View, Text, ScrollView, StyleSheet } from "react-native";
-import React from "react";
-import { Link } from "expo-router";
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { BASE_URL } from "@/config/api";
+import axios from "axios";
 
 const Message = () => {
-  const renderChatItem = () => (
-    <Link href={"/stack/inbox"} style={styles.chatItem}>
-      <View>
-        <Text style={styles.chatName}>John Doe</Text>
-        <Text style={styles.chatText}>Hey! How are you?</Text>
-      </View> 
-    </Link>
+  const [users, setUsers] = useState<any[]>([]);
+  const router = useRouter();
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const email = await AsyncStorage.getItem("userEmail");
+        const response = await axios.get(`${BASE_URL}/api/auth/users`);
+        setUsers(response.data.filter((u: any) => u.email !== email));
+      } catch (error) {
+        console.log(error);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+  const renderChatItem = (user: any) => (
+    <TouchableOpacity
+      key={user._id}
+      style={styles.chatItem}
+      onPress={() =>
+        router.push({
+          pathname: "/stack/inbox",
+          params: { chatPartnerEmail: user.email, chatPartnerName: user.name },
+        })
+      }
+    >
+      <Text style={styles.chatName}>{user.name}</Text>
+      <Text style={styles.chatText}>{user.email}</Text>
+    </TouchableOpacity>
   );
 
   return (
@@ -21,18 +47,11 @@ const Message = () => {
 
       {/* Chat List */}
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* <Text style={styles.noMessageText}>
-          No messages yet. Start a conversation!
-        </Text> */}
-
-        {renderChatItem()}
-        {renderChatItem()}
-        {renderChatItem()}
-        {renderChatItem()}
-        {renderChatItem()}
-        {renderChatItem()}
-        {renderChatItem()}
-        {renderChatItem()}
+        {users.length === 0 ? (
+          <Text style={styles.noMessageText}>No users found. Go make some friends!</Text>
+        ) : (
+          users.map(renderChatItem)
+        )}
       </ScrollView>
     </View>
   );

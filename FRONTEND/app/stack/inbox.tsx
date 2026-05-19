@@ -1,5 +1,5 @@
-// Inbox.tsx
-import BASE_URL from "@/config/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { BASE_URL } from "@/config/api";
 import React, { useState, useRef, useEffect } from "react";
 import {
   View,
@@ -14,47 +14,90 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 import { io, Socket } from "socket.io-client";
+import { useLocalSearchParams } from "expo-router";
 
 // Replace with your PC IP for testing on phone
 const SOCKET_SERVER_URL = `${BASE_URL}`;
 
 interface Message {
-  id: string;
+  senderEmail: string;
+  receiverEmail: string;
   text: string;
   timestamp: string;
 }
 
 const Inbox = () => {
+  const params = useLocalSearchParams();
+  // Force to string (useLocalSearchParams can return string | string[])
+  const chatPartnerEmail = Array.isArray(params.chatPartnerEmail)
+    ? params.chatPartnerEmail[0]
+    : (params.chatPartnerEmail as string) ?? "";
+  const chatPartnerName = Array.isArray(params.chatPartnerName)
+    ? params.chatPartnerName[0]
+    : (params.chatPartnerName as string) ?? "Chat";
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [userEmail, setUserEmail] = useState<string>("");
+
+  // Refs so socket callbacks always access the latest values
+  const userEmailRef = useRef<string>("");
+  const chatPartnerEmailRef = useRef<string>(chatPartnerEmail);
   const scrollViewRef = useRef<ScrollView>(null);
   const socketRef = useRef<Socket | null>(null);
 
+  // Keep chatPartnerEmailRef in sync
   useEffect(() => {
-    // Connect to backend
-    socketRef.current = io(SOCKET_SERVER_URL);
+    chatPartnerEmailRef.current = chatPartnerEmail;
+  }, [chatPartnerEmail]);
 
-    // Receive all previous messages
-    socketRef.current.on("all_messages", (msgs: Message[]) => {
+  useEffect(() => {
+    const socket = io(SOCKET_SERVER_URL);
+    socketRef.current = socket;
+
+    // Fetch user email FIRST, then register and load messages
+    AsyncStorage.getItem("userEmail").then((email) => {
+      if (!email) return;
+      userEmailRef.current = email;
+      setUserEmail(email);
+
+      socket.emit("register", email);
+      socket.emit("get_messages", {
+        userEmail: email,
+        chatPartnerEmail: chatPartnerEmailRef.current,
+      });
+
+      console.log("✅ Registered:", email, "→ chatting with:", chatPartnerEmailRef.current);
+    });
+
+    socket.on("all_messages", (msgs: Message[]) => {
       setMessages(msgs);
     });
 
-    // Listen for new messages
-    socketRef.current.on("message", (msg: Message) => {
+    socket.on("message", (msg: Message) => {
       setMessages((prev) => [...prev, msg]);
     });
 
     return () => {
-      socketRef.current?.disconnect();
+      socket.disconnect();
     };
-  }, []);
+  }, [chatPartnerEmail]);
 
   const handleSend = () => {
-    if (!input.trim()) return;
+    const sender = userEmailRef.current;
+    const receiver = chatPartnerEmailRef.current;
+
+    console.log("📤 handleSend — sender:", sender, "receiver:", receiver, "text:", input.trim());
+
+    if (!input.trim() || !receiver || !sender) {
+      console.warn("❌ Blocked send — missing field");
+      return;
+    }
 
     const msg: Message = {
-      id: socketRef.current?.id || "",
-      text: input,
+      senderEmail: sender,
+      receiverEmail: receiver,
+      text: input.trim(),
       timestamp: new Date().toLocaleTimeString(),
     };
 
@@ -77,7 +120,7 @@ const Inbox = () => {
         <View style={{ flex: 1 }}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerText}>Zefry Epstine.</Text>
+            <Text style={styles.headerText}>{chatPartnerName || "Chat"}</Text>
           </View>
 
           {/* Messages */}
@@ -87,7 +130,7 @@ const Inbox = () => {
             showsVerticalScrollIndicator={false}
           >
             {messages.map((msg, index) => {
-              const isMe = msg.id === socketRef.current?.id;
+              const isMe = msg.senderEmail === userEmail;
               return (
                 <View
                   key={index}

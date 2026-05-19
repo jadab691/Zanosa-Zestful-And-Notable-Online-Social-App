@@ -23,7 +23,11 @@ const { width } = Dimensions.get("window");
 
 const Userprofile = () => {
   const router = useRouter();
-  const { id, name } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const name = Array.isArray(params.name) ? params.name[0] : params.name;
+  const email = Array.isArray(params.email) ? params.email[0] : params.email;
+  const paramsProfilePic = Array.isArray(params.profilePic) ? params.profilePic[0] : params.profilePic;
   const [following, setFollowing] = useState(false);
   const [posts, setPosts] = useState<any[]>([]);
   const [selectedPost, setSelectedPost] = useState<any>(null);
@@ -91,7 +95,7 @@ const Userprofile = () => {
       <View style={styles.postHeader}>
         <Image
           source={{
-            uri: "https://i.pravatar.cc/150?img=12",
+            uri: post.user?.profilePic || paramsProfilePic || "https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg?semt=ais_hybrid&w=740&q=80",
           }}
           style={styles.profileAvatar}
         />
@@ -176,7 +180,7 @@ const Userprofile = () => {
       {/* Header */}
       <View style={styles.header}>
         <Image
-          source={{ uri: "https://i.pravatar.cc/150?img=12" }}
+          source={{ uri: posts[0]?.user?.profilePic || paramsProfilePic || "https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg?semt=ais_hybrid&w=740&q=80" }}
           style={styles.avatar}
         />
  
@@ -220,11 +224,17 @@ const Userprofile = () => {
           </Text>
         </TouchableOpacity>
 
-        <View style={styles.messageButton}>
-          <Link href={"/stack/inbox"}>
-            <Text style={{ fontWeight: "600" }}>Message</Text>
-          </Link>
-        </View>
+        <TouchableOpacity
+          style={styles.messageButton}
+          onPress={() =>
+            router.push({
+              pathname: "/stack/inbox",
+              params: { chatPartnerEmail: email, chatPartnerName: name },
+            })
+          }
+        >
+          <Text style={{ fontWeight: "600" }}>Message</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Posts Grid */}

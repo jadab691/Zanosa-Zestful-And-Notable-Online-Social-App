@@ -17,6 +17,7 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 
 import { BASE_URL } from "../../config/api";
 
@@ -26,6 +27,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [name, setName] = useState("Example User");
   const [posts, setPosts] = useState<any[]>([]);
+  const [profilePic, setProfilePic] = useState<string>("");
 
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
@@ -39,6 +41,16 @@ export default function ProfileScreen() {
 
         const token = await AsyncStorage.getItem("token");
         if (!token) return;
+
+        // Fetch user profile to get profilePic
+        const profileRes = await fetch(`${BASE_URL}/api/auth/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          if (profileData.name) setName(profileData.name);
+          if (profileData.profilePic) setProfilePic(profileData.profilePic);
+        }
 
         // Fetch user posts
         const res = await fetch(`${BASE_URL}/api/posts/my-posts`, {
@@ -55,6 +67,73 @@ export default function ProfileScreen() {
 
     loadProfile();
   }, []);
+
+  const changeProfilePic = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        Alert.alert("Permission required", "Please allow gallery access to upload a profile picture.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled) return;
+
+      const imageUri = result.assets[0].uri;
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Please login again");
+        return;
+      }
+
+      const formData = new FormData();
+      let filename = imageUri.split("/").pop() || "profile.jpg";
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : "image/jpeg";
+      if (!match) {
+        filename = `${filename}.jpg`;
+      }
+
+      if (Platform.OS === "web") {
+        const res = await fetch(imageUri);
+        const blob = await res.blob();
+        formData.append("image", blob, filename);
+      } else {
+        formData.append("image", {
+          uri: imageUri,
+          name: filename,
+          type,
+        } as any);
+      }
+
+      const response = await fetch(`${BASE_URL}/api/auth/profile-pic`, {
+        method: "PUT",
+        body: formData,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      });
+
+      const resData = await response.json();
+      if (!response.ok) {
+        throw new Error(resData.message || "Upload failed");
+      }
+
+      setProfilePic(resData.profilePic);
+      Alert.alert("Success", "Profile picture updated successfully!");
+    } catch (err: any) {
+      console.log("Error changing profile picture:", err.message);
+      Alert.alert("Upload failed", err.message || "Could not upload profile picture.");
+    }
+  };
 
   const handleLike = async (postId: string) => {
     try {
@@ -118,7 +197,7 @@ export default function ProfileScreen() {
       <View style={styles.postHeader}>
         <Image
           source={{
-            uri: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=60",
+            uri: profilePic || "https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg?semt=ais_hybrid&w=740&q=80",
           }}
           style={styles.profileAvatar}
         />
@@ -201,12 +280,17 @@ export default function ProfileScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.profileSection}>
-          <Image
-            source={{
-              uri: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=60",
-            }}
-            style={styles.profileImage}
-          />
+          <TouchableOpacity onPress={changeProfilePic} activeOpacity={0.8} style={{ position: "relative" }}>
+            <Image
+              source={{
+                uri: profilePic || "https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg?semt=ais_hybrid&w=740&q=80",
+              }}
+              style={styles.profileImage}
+            />
+            <View style={styles.editBadge}>
+              <Ionicons name="camera" size={16} color="white" />
+            </View>
+          </TouchableOpacity>
           <Text style={styles.userName}>{name}</Text>
           <Text style={styles.bio}>Less perfection, more authenticity. ✨</Text>
         </View>
@@ -272,6 +356,19 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: "700" },
   iconButton: { padding: 5 },
   profileSection: { alignItems: "center", marginTop: 20 },
+  editBadge: {
+    position: "absolute",
+    bottom: 5,
+    right: 5,
+    backgroundColor: "#1DA1F2",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "white",
+  },
   profileImage: {
     width: 120,
     height: 120,

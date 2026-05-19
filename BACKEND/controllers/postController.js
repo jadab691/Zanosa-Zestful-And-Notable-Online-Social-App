@@ -31,7 +31,7 @@ export const createPost = async (req, res) => {
 export const getUserPosts = async (req, res) => {
   try {
     const posts = await Post.find({ user: req.user.id || req.user._id })
-      .populate("user", "name")
+      .populate("user", "name email profilePic")
       .populate("comments.user", "name")
       .sort({ createdAt: -1 });
     res.status(200).json(posts);
@@ -43,7 +43,7 @@ export const getUserPosts = async (req, res) => {
 export const getPostsByUser = async (req, res) => {
   try {
     const posts = await Post.find({ user: req.params.userId })
-      .populate("user", "name")
+      .populate("user", "name email profilePic")
       .populate("comments.user", "name")
       .sort({ createdAt: -1 });
     res.status(200).json(posts);
@@ -55,7 +55,7 @@ export const getPostsByUser = async (req, res) => {
 export const getAllPosts = async (req, res) => {
   try {
     const posts = await Post.find()
-      .populate("user", "name")
+      .populate("user", "name email profilePic")
       .populate("comments.user", "name")
       .sort({ createdAt: -1 });
     res.status(200).json(posts);
@@ -81,7 +81,7 @@ export const likePost = async (req, res) => {
     }
 
     await post.save();
-    await post.populate("user", "name");
+    await post.populate("user", "name email profilePic");
     await post.populate("comments.user", "name");
     res.status(200).json(post);
   } catch (error) {
@@ -107,7 +107,7 @@ export const addComment = async (req, res) => {
     post.comments.push(newComment);
     await post.save();
 
-    await post.populate("user", "name");
+    await post.populate("user", "name email profilePic");
     await post.populate("comments.user", "name");
 
     res.status(201).json(post);

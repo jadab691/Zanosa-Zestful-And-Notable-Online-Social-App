@@ -10,14 +10,14 @@ import {
 } from "react-native";
 import React, { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Link } from "expo-router";
-import { useRouter } from "expo-router"; 
+import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { BASE_URL } from "../../config/api"; 
+import { BASE_URL } from "../../config/api";
 
 const Home = () => {
   const router = useRouter();
   const [posts, setPosts] = useState<any[]>([]);
+  const [myEmail, setMyEmail] = useState<string>("");
 
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
@@ -41,7 +41,24 @@ const Home = () => {
 
   useEffect(() => {
     fetchPosts();
+    // Load logged-in user's email
+    AsyncStorage.getItem("userEmail").then((email) => {
+      if (email) setMyEmail(email);
+    });
   }, []);
+
+  const handleUsernamePress = (post: any) => {
+    if (post.user?.email && post.user.email === myEmail) {
+      // It's the logged-in user's own post → go to own profile tab
+      router.push("/stack/profile");
+    } else {
+      // Another user → go to their profile
+      router.push({
+        pathname: "/stack/userprofile",
+        params: { id: post.user?._id, name: post.user?.name, email: post.user?.email, profilePic: post.user?.profilePic },
+      });
+    }
+  };
 
   const handlePost = () => router.push("/stack/post");
   
@@ -101,22 +118,14 @@ const Home = () => {
       <View style={styles.postHeader}>
         <Image
           source={{
-            uri: "https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg?semt=ais_hybrid&w=740&q=80",
+            uri: post.user?.profilePic || "https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg?semt=ais_hybrid&w=740&q=80",
           }}
           style={styles.profileImage}
         />
 
-        <Link 
-          href={{
-            pathname: "/stack/userprofile",
-            params: { id: post.user?._id, name: post.user?.name }
-          }} 
-          asChild
-        >
-          <Pressable>
+        <Pressable onPress={() => handleUsernamePress(post)}>
             <Text style={styles.username}>{post.user?.name || "Unknown User"}</Text>
           </Pressable>
-        </Link>
       </View>
 
       {/* Post Image */}

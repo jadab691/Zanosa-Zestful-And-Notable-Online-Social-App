@@ -20,6 +20,8 @@ export default function SignupScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [step, setStep] = useState("signup"); // signup or verify
 
   const router = useRouter();
 
@@ -28,25 +30,47 @@ export default function SignupScreen() {
       Alert.alert("Error", "Please fill all fields");
       return;
     }
-
-    try {
-      const response = await fetch(`${BASE_URL}/api/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        Alert.alert("Success", data.message);
-        router.push("/stack/login");
-      } else {
-        Alert.alert("Error", data.message);
+    if (step === "signup") {
+      // initial request to send OTP
+      try {
+        const response = await fetch(`${BASE_URL}/api/auth/signup`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password }),
+        });
+        const data = await response.json();
+        if (response.ok) {
+          Alert.alert("Success", data.message);
+          setStep("verify");
+        } else {
+          Alert.alert("Error", data.message);
+        }
+      } catch (err) {
+        console.log(err);
+        Alert.alert("Error", "Something went wrong");
       }
-    } catch (err) {
-      console.log(err);
-      Alert.alert("Error", "Something went wrong");
+    } else if (step === "verify") {
+      if (!otp) {
+        Alert.alert("Error", "Please enter the OTP code");
+        return;
+      }
+      try {
+        const response = await fetch(`${BASE_URL}/api/auth/signup`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password, otp }),
+        });
+        const data = await response.json();
+        if (response.ok) {
+          Alert.alert("Success", data.message);
+          router.push("/stack/login");
+        } else {
+          Alert.alert("Error", data.message);
+        }
+      } catch (err) {
+        console.log(err);
+        Alert.alert("Error", "Something went wrong");
+      }
     }
   };
 
@@ -119,22 +143,39 @@ export default function SignupScreen() {
                   />
                 </TouchableOpacity>
               </View>
+
+              {step === "verify" && (
+                <>
+                  <Text style={styles.label}>OTP Code</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter 4-digit code"
+                    placeholderTextColor="#A0AABF"
+                    keyboardType="numeric"
+                    maxLength={4}
+                    value={otp}
+                    onChangeText={setOtp}
+                  />
+                </>
+              )}
+
+              {/* Button */}
+              <TouchableOpacity style={styles.button} onPress={handleSignup}>
+                <Text style={styles.buttonText}>
+                  {step === "signup" ? "Create Account" : "Verify OTP"}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Login Link */}
+              <TouchableOpacity
+                style={styles.loginLink}
+                onPress={() => router.push("/stack/login")}
+              >
+                <Text style={styles.footerText}>
+                  Already have an account? <Text style={styles.link}>Log In</Text>
+                </Text>
+              </TouchableOpacity>
             </View>
-
-            {/* Button */}
-            <TouchableOpacity style={styles.button} onPress={handleSignup}>
-              <Text style={styles.buttonText}>Create Account</Text>
-            </TouchableOpacity>
-
-            {/* Login Link */}
-            <TouchableOpacity
-              style={styles.loginLink}
-              onPress={() => router.push("/stack/login")}
-            >
-              <Text style={styles.footerText}>
-                Already have an account? <Text style={styles.link}>Log In</Text>
-              </Text>
-            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

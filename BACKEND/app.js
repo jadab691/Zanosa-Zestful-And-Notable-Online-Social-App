@@ -6,13 +6,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 import authRoutes from "./routes/authRoutes.js";
-import postRoutes from "./routes/postRoutes.js";  // ADD THIS
+import postRoutes from "./routes/postRoutes.js"; 
 
 app.get("/", (req, res) => {
   res.send("Zanosa api is running successfully");
 });
 
 app.use("/api/auth", authRoutes);
-app.use("/api/posts", postRoutes);  // ADD THIS
+app.use("/api/posts", postRoutes);  
 
 export default app;

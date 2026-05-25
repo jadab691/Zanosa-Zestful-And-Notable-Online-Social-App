@@ -1,6 +1,8 @@
 import User from "../models/users.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { sendEmail } from "../utils/mailer.js";
+import EmailVerification from "../models/emailVerification.js";
 
 // ================= SIGNUP =================
 export const signup = async (req, res) => {
@@ -8,29 +10,57 @@ export const signup = async (req, res) => {
   console.log(req.body);
 
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, otp } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const existingUser = await User.findOne({ email });
+    // Validate email format
+    const emailRegex = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Invalid email address" });
+    }
 
+    // Check if OTP is required (if user already verified, skip)
+    if (!otp) {
+      // Generate 4-digit OTP
+      const generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      // Upsert verification record
+      await EmailVerification.findOneAndUpdate(
+        { email },
+        { code: generatedOtp, expiresAt },
+        { upsert: true, new: true }
+      );
+      // Send email
+      await sendEmail({
+        to: email,
+        subject: "Your verification code",
+        text: `Your verification code is ${generatedOtp}`
+      });
+      return res.status(200).json({ message: "OTP sent to email" });
+    }
+
+    // Verify OTP
+    const verification = await EmailVerification.findOne({ email, code: otp });
+    if (!verification) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
+    }
+    if (verification.expiresAt < new Date()) {
+      return res.status(400).json({ message: "OTP has expired" });
+    }
+
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // 🔐 Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = new User({
-      name,
-      email,
-      password: hashedPassword,
-    });
-
+    const user = new User({ name, email, password: hashedPassword });
     await user.save();
-
+    // Cleanup verification
+    await EmailVerification.deleteOne({ email });
     res.status(201).json({ message: "User created successfully" });
   } catch (error) {
     console.log(error);
@@ -95,7 +125,7 @@ export const getAllUsers = async (req, res) => {
 // ================= GET PROFILE =================
 export const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id || req.user._id).select("-password");
+    const user = await User.findById(req.user.id || req.user._id).select("-password"); //select except password
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }

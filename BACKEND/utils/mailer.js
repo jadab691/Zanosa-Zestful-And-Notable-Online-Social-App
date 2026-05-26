@@ -1,37 +1,32 @@
-import nodemailer from 'nodemailer';
-import dotenv from 'dotenv';
+import nodemailer from "nodemailer";
+import dotenv from "dotenv";
 
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  port: Number(process.env.EMAIL_PORT) || 587,
-  secure: false,
-  family: 4,
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true, // IMPORTANT
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    pass: process.env.EMAIL_PASS, // Gmail App Password
   },
-  logger: true,
-  debug: true,
 });
 
 export const sendEmail = async ({ to, subject, text, html }) => {
-  const mailOptions = {
-    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
-    to,
-    subject,
-    text,
-    html,
-  };
   try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent: %s', info.messageId);
+    const info = await transporter.sendMail({
+      from: `"Zanosa" <${process.env.EMAIL_USER}>`,
+      to,
+      subject,
+      text,
+      html,
+    });
+
+    console.log("✅ Email sent:", info.messageId);
     return info;
   } catch (error) {
-    console.error('Error sending email', error);
+    console.error("❌ Error sending email:", error);
     throw error;
   }
 };
-
-

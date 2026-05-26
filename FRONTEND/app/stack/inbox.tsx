@@ -177,80 +177,83 @@ const Inbox = () => {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={5}
     >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={{ flex: 1 }}>
-          {/* Header */}
-          <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-            <Text style={[styles.headerText, { color: colors.text }]}>{chatPartnerName || "Chat"}</Text>
-          </View>
-
-          {/* Messages */}
-          <ScrollView
-            ref={scrollViewRef}
-            contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 10 }}
-            showsVerticalScrollIndicator={false}
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
           >
-            {messages.map((msg, index) => {
-              const isMe = msg.senderEmail === userEmail;
-              return (
-                <View
-                  key={index}
-                  style={[
-                    styles.messageBubble,
-                    isMe ? styles.myMessage : [styles.theirMessage, { backgroundColor: colors.card, borderColor: colors.border }],
-                  ]}
-                >
-                  {msg.imageUrl ? (
-                    <Image
-                      source={{ uri: msg.imageUrl }}
-                      style={styles.chatImage}
-                      resizeMode="cover"
-                    />
-                  ) : null}
-                  {msg.text ? (
-                    <Text
-                      style={[
-                        styles.messageText,
-                        !isMe && { color: colors.text },
-                      ]}
-                    >
-                      {msg.text}
-                    </Text>
-                  ) : null}
-                  <Text style={[styles.timestamp, isMe ? { color: "rgba(255,255,255,0.6)" } : { color: colors.text, opacity: 0.5 }]}>
-                    {msg.timestamp}
-                  </Text>
-                </View>
-              );
-            })}
-          </ScrollView>
-
-          {/* Uploading indicator */}
-          {uploadingImage && (
-            <View style={[styles.uploadingBanner, { backgroundColor: colors.card }]}>
-              <ActivityIndicator size="small" color={colors.primary} />
-              <Text style={[styles.uploadingText, { color: colors.text }]}>Sending image...</Text>
-            </View>
-          )}
-
-          {/* Input Box */}
-          <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <TouchableOpacity onPress={handlePickImage} style={styles.imagePickerButton} disabled={uploadingImage}>
-              <Ionicons name="image-outline" size={26} color={uploadingImage ? "gray" : colors.primary} />
-            </TouchableOpacity>
-            <TextInput
-              style={[styles.textInput, { color: colors.text }]}
-              placeholder="Type a message..."
-              placeholderTextColor={colors.text + "88"}
-              value={input}
-              onChangeText={setInput}
-            />
-            <Pressable style={styles.sendButton} onPress={handleSend}>
-              <Text style={styles.sendButtonText}>Send</Text>
-            </Pressable>
-          </View>
+          <Text style={[styles.headerText, { color: colors.text }]}>{chatPartnerName || "Chat"}</Text>
         </View>
-      </TouchableWithoutFeedback>
+
+        {/* Messages */}
+        <ScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 10 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {messages.map((msg, index) => {
+            const isMe = msg.senderEmail === userEmail;
+            return (
+              <View
+                key={index}
+                style={[
+                  styles.messageBubble,
+                  isMe ? styles.myMessage : [styles.theirMessage, { backgroundColor: colors.card, borderColor: colors.border }],
+                ]}
+              >
+                {msg.imageUrl ? (
+                  <Image
+                    source={{ uri: msg.imageUrl }}
+                    style={styles.chatImage}
+                    resizeMode="cover"
+                  />
+                ) : null}
+                {msg.text ? (
+                  <Text
+                    style={[
+                      styles.messageText,
+                      !isMe && { color: colors.text },
+                    ]}
+                  >
+                    {msg.text}
+                  </Text>
+                ) : null}
+                <Text style={[styles.timestamp, isMe ? { color: "rgba(255,255,255,0.6)" } : { color: colors.text, opacity: 0.5 }]}>
+                  {msg.timestamp}
+                </Text>
+              </View>
+            );
+          })}
+        </ScrollView>
+
+        {/* Uploading indicator */}
+        {uploadingImage && (
+          <View style={[styles.uploadingBanner, { backgroundColor: colors.card }]}
+            >
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={[styles.uploadingText, { color: colors.text }]}>Sending image...</Text>
+          </View>
+        )}
+
+        {/* Input Box */}
+        <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
+          >
+          <TouchableOpacity onPress={handlePickImage} style={styles.imagePickerButton} disabled={uploadingImage}>
+            <Ionicons name="image-outline" size={26} color={uploadingImage ? "gray" : colors.primary} />
+          </TouchableOpacity>
+          <TextInput
+            style={[styles.textInput, { color: colors.text }]}
+            placeholder="Type a message..."
+            placeholderTextColor={colors.text + "88"}
+            value={input}
+            onChangeText={setInput}
+            onSubmitEditing={handleSend}
+            blurOnSubmit={false}
+            returnKeyType="send"
+            onKeyPress={(e) => { if (e.nativeEvent.key === 'Enter') handleSend(); }}
+          />
+          <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
+            <Text style={styles.sendButtonText}>Send</Text>
+          </TouchableOpacity>
+        </View>
     </KeyboardAvoidingView>
   );
 };

@@ -18,10 +18,12 @@ import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BASE_URL } from "../../config/api";
+import { useTheme } from "../../context/ThemeContext";
 
 const { width } = Dimensions.get("window");
 
 const Userprofile = () => {
+  const { colors } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -118,7 +120,7 @@ const Userprofile = () => {
   };
 
   const renderFullPost = (post: any) => (
-    <View key={post._id} style={styles.fullPostContainer}>
+    <View key={post._id} style={[styles.fullPostContainer, { backgroundColor: colors.card }]}>
       <View style={styles.postHeader}>
         <Image
           source={{
@@ -126,22 +128,22 @@ const Userprofile = () => {
           }}
           style={styles.profileAvatar}
         />
-        <Text style={styles.postUsername}>{post.user?.name || name}</Text>
+        <Text style={[styles.postUsername, { color: colors.text }]}>{post.user?.name || name}</Text>
       </View>
 
       <Image source={{ uri: post.image }} style={styles.fullPostImage} />
 
       <View style={styles.captionContainer}>
-        <Text style={styles.captionText}>
-          <Text style={styles.usernameBold}>{post.user?.name || name}</Text> {post.caption}
+        <Text style={[styles.captionText, { color: colors.text }]}>
+          <Text style={[styles.usernameBold, { color: colors.text }]}>{post.user?.name || name}</Text> {post.caption}
         </Text>
       </View>
 
       {post.comments && post.comments.length > 0 && (
         <View style={styles.commentsList}>
           {post.comments.slice(-2).map((c: any, index: number) => (
-            <Text key={index} style={styles.commentText}>
-              <Text style={styles.usernameBold}>{c.user?.name}</Text> {c.text}
+            <Text key={index} style={[styles.commentText, { color: colors.text }]}>
+              <Text style={[styles.usernameBold, { color: colors.text }]}>{c.user?.name}</Text> {c.text}
             </Text>
           ))}
           {post.comments.length > 2 && <Text style={styles.viewAllText}>View all {post.comments.length} comments</Text>}
@@ -150,21 +152,22 @@ const Userprofile = () => {
 
       <View style={styles.actionRow}>
         <TouchableOpacity onPress={() => handleLike(post._id)} style={styles.actionButton}>
-          <Ionicons name={post.likes && post.likes.length > 0 ? "heart" : "heart-outline"} size={24} color={post.likes && post.likes.length > 0 ? "red" : "black"} />
-          <Text style={styles.actionText}>{post.likes?.length || 0}</Text>
+          <Ionicons name={post.likes && post.likes.length > 0 ? "heart" : "heart-outline"} size={24} color={post.likes && post.likes.length > 0 ? "red" : colors.text} />
+          <Text style={[styles.actionText, { color: colors.text }]}>{post.likes?.length || 0}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => handleComment(post._id)} style={styles.actionButton}>
-          <Ionicons name="chatbubble-outline" size={24} color="black" />
-          <Text style={styles.actionText}>{post.comments?.length || 0}</Text>
+          <Ionicons name="chatbubble-outline" size={24} color={colors.text} />
+          <Text style={[styles.actionText, { color: colors.text }]}>{post.comments?.length || 0}</Text>
         </TouchableOpacity>
       </View>
 
       {activeCommentPostId === post._id && (
         <View style={styles.commentInputRow}>
           <TextInput
-            style={styles.commentInput}
+            style={[styles.commentInput, { color: colors.text, borderColor: colors.border }]}
             placeholder="Add a comment..."
+            placeholderTextColor={colors.text}
             value={commentText}
             onChangeText={setCommentText}
           />
@@ -236,10 +239,10 @@ const Userprofile = () => {
 
   return (
     <>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView style={[styles.container, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => router.back()} style={{ padding: 5 }}>
-          <Ionicons name="chevron-back" size={24} color="black" />
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
       </View>
       
@@ -252,17 +255,17 @@ const Userprofile = () => {
  
         <View style={styles.statsContainer}>
           <View style={styles.statBox}>
-            <Text style={styles.statNumber}>{posts.length}</Text>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{posts.length}</Text>
             <Text style={styles.statLabel}>Posts</Text>
           </View>
 
           <TouchableOpacity style={styles.statBox} onPress={() => fetchFollowList("followers")}>
-            <Text style={styles.statNumber}>{followersCount}</Text>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{followersCount}</Text>
             <Text style={styles.statLabel}>Followers</Text>
           </TouchableOpacity>
  
           <TouchableOpacity style={styles.statBox} onPress={() => fetchFollowList("following")}>
-            <Text style={styles.statNumber}>{followingCount}</Text>
+            <Text style={[styles.statNumber, { color: colors.text }]}>{followingCount}</Text>
             <Text style={styles.statLabel}>Following</Text>
           </TouchableOpacity>
         </View>
@@ -270,7 +273,7 @@ const Userprofile = () => {
 
       {/* Name & Bio */}
       <View style={styles.bioSection}>
-        <Text style={styles.name}>{name || "User"}</Text>
+        <Text style={[styles.name, { color: colors.text }]}>{name || "User"}</Text>
         <Text style={styles.bio}>
           📸 Photographer 🌍 Traveler 🎨 Creative Mind
         </Text>
@@ -291,7 +294,7 @@ const Userprofile = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.messageButton}
+          style={[styles.messageButton, { borderColor: colors.border }]}
           onPress={() =>
             router.push({
               pathname: "/stack/inbox",
@@ -299,7 +302,7 @@ const Userprofile = () => {
             })
           }
         >
-          <Text style={{ fontWeight: "600" }}>Message</Text>
+          <Text style={{ fontWeight: "600", color: colors.text }}>Message</Text>
         </TouchableOpacity>
       </View>
 
@@ -309,16 +312,16 @@ const Userprofile = () => {
           <TouchableOpacity key={post._id || index} onPress={() => setSelectedPost(post)} style={styles.postContainer}>
             <Image source={{ uri: post.image }} style={styles.gridImage} />
             {post.caption ? (
-              <Text style={styles.caption} numberOfLines={2}>
+              <Text style={[styles.caption, { color: colors.text }]} numberOfLines={2}>
                 {post.caption}
               </Text>
             ) : null}
             <View style={styles.gridActionRow}>
-               <Ionicons name={post.likes && post.likes.length > 0 ? "heart" : "heart-outline"} size={14} color={post.likes && post.likes.length > 0 ? "red" : "black"} />
-               <Text style={styles.gridActionText}>{post.likes?.length || 0}</Text>
+               <Ionicons name={post.likes && post.likes.length > 0 ? "heart" : "heart-outline"} size={14} color={post.likes && post.likes.length > 0 ? "red" : colors.text} />
+               <Text style={[styles.gridActionText, { color: colors.text }]}>{post.likes?.length || 0}</Text>
                <View style={{width: 10}} />
-               <Ionicons name="chatbubble-outline" size={14} color="black" />
-               <Text style={styles.gridActionText}>{post.comments?.length || 0}</Text>
+               <Ionicons name="chatbubble-outline" size={14} color={colors.text} />
+               <Text style={[styles.gridActionText, { color: colors.text }]}>{post.comments?.length || 0}</Text>
             </View>
           </TouchableOpacity>
         ))}
@@ -326,12 +329,12 @@ const Userprofile = () => {
     </ScrollView>
 
     <Modal visible={!!selectedPost} animationType="slide" onRequestClose={() => setSelectedPost(null)}>
-      <SafeAreaView style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
+      <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+        <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
           <TouchableOpacity onPress={() => setSelectedPost(null)} style={styles.closeButton}>
-            <Ionicons name="close" size={28} color="black" />
+            <Ionicons name="close" size={28} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.modalTitle}>Post</Text>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>Post</Text>
           <View style={{ width: 28 }} />
         </View>
         <ScrollView showsVerticalScrollIndicator={false}>
@@ -341,19 +344,19 @@ const Userprofile = () => {
     </Modal>
 
     <Modal visible={isListModalVisible} animationType="slide" onRequestClose={() => setIsListModalVisible(false)}>
-      <SafeAreaView style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
+      <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+        <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
           <TouchableOpacity onPress={() => setIsListModalVisible(false)} style={styles.closeButton}>
-            <Ionicons name="close" size={28} color="black" />
+            <Ionicons name="close" size={28} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.modalTitle}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>
             {modalListType === "followers" ? "Followers" : "Following"}
           </Text>
           <View style={{ width: 28 }} />
         </View>
         <ScrollView showsVerticalScrollIndicator={false}>
           {modalListData.length === 0 ? (
-            <View style={styles.emptyContainer}>
+            <View style={[styles.emptyContainer, { backgroundColor: colors.background }]}>
               <Ionicons name="people-outline" size={48} color="gray" />
               <Text style={styles.emptyText}>No users found</Text>
             </View>
@@ -361,7 +364,7 @@ const Userprofile = () => {
             modalListData.map((user) => (
               <TouchableOpacity
                 key={user._id}
-                style={styles.userItem}
+                style={[styles.userItem, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
                 onPress={() => {
                   setIsListModalVisible(false);
                   if (user._id === currentUserId) {
@@ -381,7 +384,7 @@ const Userprofile = () => {
                   style={styles.userAvatar}
                 />
                 <View style={styles.userInfo}>
-                  <Text style={styles.userItemName}>{user.name}</Text>
+                  <Text style={[styles.userItemName, { color: colors.text }]}>{user.name}</Text>
                   <Text style={styles.userItemEmail}>{user.email}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="lightgray" />

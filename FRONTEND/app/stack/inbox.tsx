@@ -12,23 +12,29 @@ import {
   Platform,
   Keyboard,
   TouchableWithoutFeedback,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
 import { io, Socket } from "socket.io-client";
 import { useLocalSearchParams } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../../context/ThemeContext";
 
-// Replace with your PC IP for testing on phone
 const SOCKET_SERVER_URL = `${BASE_URL}`;
 
 interface Message {
   senderEmail: string;
   receiverEmail: string;
   text: string;
+  imageUrl?: string;
   timestamp: string;
 }
 
 const Inbox = () => {
+  const { colors } = useTheme();
   const params = useLocalSearchParams();
-  // Force to string (useLocalSearchParams can return string | string[])
   const chatPartnerEmail = Array.isArray(params.chatPartnerEmail)
     ? params.chatPartnerEmail[0]
     : (params.chatPartnerEmail as string) ?? "";
@@ -39,14 +45,13 @@ const Inbox = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [userEmail, setUserEmail] = useState<string>("");
+  const [uploadingImage, setUploadingImage] = useState(false);
 
-  // Refs so socket callbacks always access the latest values
   const userEmailRef = useRef<string>("");
   const chatPartnerEmailRef = useRef<string>(chatPartnerEmail);
   const scrollViewRef = useRef<ScrollView>(null);
   const socketRef = useRef<Socket | null>(null);
 
-  // Keep chatPartnerEmailRef in sync
   useEffect(() => {
     chatPartnerEmailRef.current = chatPartnerEmail;
   }, [chatPartnerEmail]);
@@ -55,7 +60,6 @@ const Inbox = () => {
     const socket = io(SOCKET_SERVER_URL);
     socketRef.current = socket;
 
-    // Fetch user email FIRST, then register and load messages
     AsyncStorage.getItem("userEmail").then((email) => {
       if (!email) return;
       userEmailRef.current = email;
@@ -66,8 +70,6 @@ const Inbox = () => {
         userEmail: email,
         chatPartnerEmail: chatPartnerEmailRef.current,
       });
-
-      console.log("✅ Registered:", email, "→ chatting with:", chatPartnerEmailRef.current);
     });
 
     socket.on("all_messages", (msgs: Message[]) => {
@@ -87,12 +89,7 @@ const Inbox = () => {
     const sender = userEmailRef.current;
     const receiver = chatPartnerEmailRef.current;
 
-    console.log("📤 handleSend — sender:", sender, "receiver:", receiver, "text:", input.trim());
-
-    if (!input.trim() || !receiver || !sender) {
-      console.warn("❌ Blocked send — missing field");
-      return;
-    }
+    if (!input.trim() || !receiver || !sender) return;
 
     const msg: Message = {
       senderEmail: sender,
@@ -105,28 +102,92 @@ const Inbox = () => {
     setInput("");
   };
 
-  // Auto-scroll to bottom when messages update
+  const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      alert("Permission to access photos is required!");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+    const asset = result.assets[0];
+    setUploadingImage(true);
+
+    try {
+      const token = await AsyncStorage.getItem("token");
+
+      const formData = new FormData();
+      if (Platform.OS === "web") {
+        // For web, fetch the blob
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        formData.append("image", blob, "chat_image.jpg");
+      } else {
+        formData.append("image", {
+          uri: asset.uri,
+          name: "chat_image.jpg",
+          type: "image/jpeg",
+        } as any);
+      }
+
+      const uploadRes = await fetch(`${BASE_URL}/api/posts/upload-chat-image`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (!uploadRes.ok) throw new Error("Upload failed");
+
+      const { imageUrl } = await uploadRes.json();
+
+      // Send image message via socket
+      const sender = userEmailRef.current;
+      const receiver = chatPartnerEmailRef.current;
+
+      const msg: Message = {
+        senderEmail: sender,
+        receiverEmail: receiver,
+        text: "",
+        imageUrl,
+        timestamp: new Date().toLocaleTimeString(),
+      };
+
+      socketRef.current?.emit("message", msg);
+    } catch (err) {
+      console.log("Image upload error:", err);
+      alert("Failed to send image. Please try again.");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={5}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={{ flex: 1 }}>
           {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerText}>{chatPartnerName || "Chat"}</Text>
+          <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+            <Text style={[styles.headerText, { color: colors.text }]}>{chatPartnerName || "Chat"}</Text>
           </View>
 
           {/* Messages */}
           <ScrollView
             ref={scrollViewRef}
-            contentContainerStyle={{ paddingBottom: 100 }}
+            contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 10 }}
             showsVerticalScrollIndicator={false}
           >
             {messages.map((msg, index) => {
@@ -136,29 +197,51 @@ const Inbox = () => {
                   key={index}
                   style={[
                     styles.messageBubble,
-                    isMe ? styles.myMessage : styles.theirMessage,
+                    isMe ? styles.myMessage : [styles.theirMessage, { backgroundColor: colors.card, borderColor: colors.border }],
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.messageText,
-                      !isMe && styles.theirMessageText,
-                    ]}
-                  >
-                    {msg.text}
+                  {msg.imageUrl ? (
+                    <Image
+                      source={{ uri: msg.imageUrl }}
+                      style={styles.chatImage}
+                      resizeMode="cover"
+                    />
+                  ) : null}
+                  {msg.text ? (
+                    <Text
+                      style={[
+                        styles.messageText,
+                        !isMe && { color: colors.text },
+                      ]}
+                    >
+                      {msg.text}
+                    </Text>
+                  ) : null}
+                  <Text style={[styles.timestamp, isMe ? { color: "rgba(255,255,255,0.6)" } : { color: colors.text, opacity: 0.5 }]}>
+                    {msg.timestamp}
                   </Text>
-                  
                 </View>
               );
             })}
           </ScrollView>
 
+          {/* Uploading indicator */}
+          {uploadingImage && (
+            <View style={[styles.uploadingBanner, { backgroundColor: colors.card }]}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={[styles.uploadingText, { color: colors.text }]}>Sending image...</Text>
+            </View>
+          )}
+
           {/* Input Box */}
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <TouchableOpacity onPress={handlePickImage} style={styles.imagePickerButton} disabled={uploadingImage}>
+              <Ionicons name="image-outline" size={26} color={uploadingImage ? "gray" : colors.primary} />
+            </TouchableOpacity>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, { color: colors.text }]}
               placeholder="Type a message..."
-              placeholderTextColor="#999"
+              placeholderTextColor={colors.text + "88"}
               value={input}
               onChangeText={setInput}
             />
@@ -174,64 +257,86 @@ const Inbox = () => {
 
 export default Inbox;
 
-// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 40,
     paddingBottom: 20,
-    paddingHorizontal: 10,
-    backgroundColor: "#f0f0f0",
   },
 
   header: {
-    backgroundColor: "#d4d9ea",
     padding: 15,
-    borderRadius: 10,
-    marginBottom: 15,
+    borderBottomWidth: 1,
+    marginBottom: 5,
   },
 
   headerText: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "bold",
-    color: "#3e3d3d",
     textAlign: "center",
   },
 
   messageBubble: {
-    padding: 12,
-    borderRadius: 12,
+    padding: 10,
+    borderRadius: 16,
     marginBottom: 10,
-    maxWidth: "80%",
+    maxWidth: "78%",
   },
 
   myMessage: {
     backgroundColor: "#5868f5",
     alignSelf: "flex-end",
+    borderBottomRightRadius: 4,
   },
 
   theirMessage: {
-    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#ddd",
     alignSelf: "flex-start",
+    borderBottomLeftRadius: 4,
   },
-  theirMessageText: {
-    color: "#333",
-  },
+
   messageText: {
     fontSize: 16,
-    color: "#e5dddd",
+    color: "#fff",
   },
+
+  chatImage: {
+    width: 220,
+    height: 180,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+
+  timestamp: {
+    fontSize: 11,
+    marginTop: 4,
+    alignSelf: "flex-end",
+  },
+
+  uploadingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 8,
+    paddingHorizontal: 15,
+    gap: 10,
+  },
+
+  uploadingText: {
+    fontSize: 14,
+  },
+
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     padding: 10,
-    backgroundColor: "#e7dfdf",
+    borderTopWidth: 1,
+    marginHorizontal: 10,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#ddd",
     marginBottom: 10,
+  },
+
+  imagePickerButton: {
+    paddingRight: 8,
   },
 
   textInput: {

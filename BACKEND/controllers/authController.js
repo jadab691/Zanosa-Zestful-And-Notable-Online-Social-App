@@ -219,6 +219,45 @@ export const updateProfilePic = async (req, res) => {
   }
 };
 
+// ================= UPDATE PROFILE (NAME & BIO) =================
+export const updateProfile = async (req, res) => {
+  try {
+    const { name, bio } = req.body;
+    const userId = req.user.id || req.user._id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    let updateData = {};
+
+    if (bio !== undefined) {
+      updateData.bio = bio;
+    }
+
+    if (name && name !== user.name) {
+      // Check 3-month restriction
+      if (user.lastNameUpdate) {
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+        if (user.lastNameUpdate > threeMonthsAgo) {
+          return res.status(400).json({ message: "You can only change your name once every 3 months." });
+        }
+      }
+      updateData.name = name;
+      updateData.lastNameUpdate = new Date();
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true }).select("-password");
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 // ================= GET FOLLOWERS =================
 export const getFollowers = async (req, res) => {
   try {

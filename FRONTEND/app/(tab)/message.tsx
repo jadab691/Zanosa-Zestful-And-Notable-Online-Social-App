@@ -4,8 +4,10 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BASE_URL } from "@/config/api";
 import axios from "axios";
+import { useTheme } from "../../context/ThemeContext";
 
 const Message = () => {
+  const { colors } = useTheme();
   const [users, setUsers] = useState<any[]>([]);
   const router = useRouter();
 
@@ -28,7 +30,7 @@ const Message = () => {
   const renderChatItem = (user: any) => (
     <TouchableOpacity
       key={user._id}
-      style={styles.chatItem}
+      style={[styles.chatItem, { backgroundColor: colors.card, borderColor: colors.border }]}
       onPress={() =>
         router.push({
           pathname: "/stack/inbox",
@@ -36,16 +38,16 @@ const Message = () => {
         })
       }
     >
-      <Text style={styles.chatName}>{user.name}</Text>
+      <Text style={[styles.chatName, { color: colors.text }]}>{user.name}</Text>
       <Text style={styles.chatText}>{user.email}</Text>
     </TouchableOpacity>
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Message Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerText}>Messages</Text>
+      <View style={[styles.header, { backgroundColor: colors.card }]}>
+        <Text style={[styles.headerText, { color: colors.text }]}>Messages</Text>
       </View>
 
       {/* Chat List */}

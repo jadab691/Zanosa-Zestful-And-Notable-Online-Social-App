@@ -3,40 +3,59 @@ import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTheme } from "../../context/ThemeContext";
 
 // Reusable Menu Item
 // @ts-ignore
-const MenuItem = ({ icon, label, color = "#292323", onPress }) => (
-  <Pressable style={styles.menuItem} onPress={onPress}>
-    <Ionicons name={icon} size={22} color={color} />
-    <Text style={[styles.menuText, { color }]}>{label}</Text>
-  </Pressable>
-);
+const MenuItem = ({ icon, label, color, onPress, themeColors }) => {
+  const itemColor = color || themeColors.text;
+  return (
+    <Pressable style={[styles.menuItem, { backgroundColor: themeColors.card }]} onPress={onPress}>
+      <Ionicons name={icon} size={22} color={itemColor} />
+      <Text style={[styles.menuText, { color: itemColor }]}>{label}</Text>
+    </Pressable>
+  );
+};
 
 // Main Menu Component
 const Menu = () => {
+  const { colors } = useTheme();
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <Text style={styles.header}>Menu</Text>
+      <Text style={[styles.header, { color: colors.text }]}>Menu</Text>
 
       {/* Menu Items */}
       <MenuItem
         icon="person-outline"
         label="Profile"
         onPress={() => router.push("/stack/profile")}
+        themeColors={colors}
       />
-      <MenuItem icon="settings-outline" label="Settings" onPress={undefined} />
+      <MenuItem 
+        icon="settings-outline" 
+        label="Settings" 
+        onPress={() => router.push("/stack/settings")} 
+        themeColors={colors} 
+      />
       <MenuItem
         icon="information-circle-outline"
         label="About"
         onPress={undefined}
+        themeColors={colors}
       />
-      <MenuItem icon="call-outline" label="Contact" onPress={undefined} />
+      <MenuItem 
+        icon="call-outline" 
+        label="Contact" 
+        onPress={undefined} 
+        themeColors={colors} 
+      />
       <MenuItem
         icon="alert-circle-outline"
         label="Report a Problem"
         onPress={undefined}
+        themeColors={colors}
       />
 
       {/* Logout */}
@@ -44,6 +63,7 @@ const Menu = () => {
         icon="log-out-outline"
         label="Logout"
         color="red"
+        themeColors={colors}
         onPress={async () => {
           try {
             // Clear stored user info
@@ -70,7 +90,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 40,
     paddingHorizontal: 15,
-    backgroundColor: "#f0f0f0",
   },
 
   header: {
@@ -82,7 +101,6 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
     padding: 15,
     borderRadius: 12,
     marginBottom: 12,

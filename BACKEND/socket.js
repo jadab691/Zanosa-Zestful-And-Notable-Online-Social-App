@@ -43,7 +43,8 @@ export const initSocket = (server) => {
         const newMessage = new Message({
           senderEmail: msgData.senderEmail,
           receiverEmail: msgData.receiverEmail,
-          text: msgData.text,
+          text: msgData.text || "",
+          imageUrl: msgData.imageUrl || "",
           timestamp: msgData.timestamp,
         });
         await newMessage.save();

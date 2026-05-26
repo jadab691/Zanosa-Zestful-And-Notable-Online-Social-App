@@ -20,10 +20,12 @@ import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 
 import { BASE_URL } from "../../config/api";
+import { useTheme } from "../../context/ThemeContext";
 
 const { width } = Dimensions.get("window");
 
 export default function ProfileScreen() {
+  const { colors } = useTheme();
   const router = useRouter();
   const [name, setName] = useState("Example User");
   const [posts, setPosts] = useState<any[]>([]);
@@ -35,6 +37,14 @@ export default function ProfileScreen() {
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
+
+  const [bio, setBio] = useState("Less perfection, more authenticity. ✨");
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
+  const [isEditNameVisible, setIsEditNameVisible] = useState(false);
+  const [isEditBioVisible, setIsEditBioVisible] = useState(false);
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newBio, setNewBio] = useState("");
 
   const [isListModalVisible, setIsListModalVisible] = useState(false);
   const [modalListType, setModalListType] = useState<"followers" | "following">("followers");
@@ -56,8 +66,15 @@ export default function ProfileScreen() {
         if (profileRes.ok) {
           const profileData = await profileRes.json();
           if (profileData._id) setUserId(profileData._id);
-          if (profileData.name) setName(profileData.name);
+          if (profileData.name) {
+            setName(profileData.name);
+            setNewName(profileData.name);
+          }
           if (profileData.profilePic) setProfilePic(profileData.profilePic);
+          if (profileData.bio) {
+             setBio(profileData.bio);
+             setNewBio(profileData.bio);
+          }
           setFollowersCount(profileData.followers?.length || 0);
           setFollowingCount(profileData.following?.length || 0);
         }
@@ -221,8 +238,72 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleUpdateProfile = async (type: "name" | "bio") => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const body = type === "name" ? { name: newName } : { bio: newBio };
+      const res = await fetch(`${BASE_URL}/api/auth/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (type === "name") {
+           setName(data.name);
+           await AsyncStorage.setItem("userName", data.name);
+           setIsEditNameVisible(false);
+           Alert.alert("Success", "Name updated successfully");
+        } else {
+           setBio(data.bio);
+           setIsEditBioVisible(false);
+           Alert.alert("Success", "Bio updated successfully");
+        }
+      } else {
+        Alert.alert("Error", data.message || "Failed to update");
+      }
+    } catch (err) {
+       console.log("Update error", err);
+       Alert.alert("Error", "Something went wrong");
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    const performDelete = async () => {
+       try {
+         const token = await AsyncStorage.getItem("token");
+         const res = await fetch(`${BASE_URL}/api/posts/${postId}`, {
+           method: "DELETE",
+           headers: { Authorization: `Bearer ${token}` }
+         });
+         if (res.ok) {
+           setPosts(posts.filter(p => p._id !== postId));
+           Alert.alert("Success", "Post deleted");
+         } else {
+           Alert.alert("Error", "Could not delete post");
+         }
+       } catch (err) {
+         console.log("Delete error", err);
+       }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm("Are you sure you want to delete this post?")) {
+        performDelete();
+      }
+    } else {
+      Alert.alert("Delete Post", "Are you sure you want to delete this post?", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: performDelete }
+      ]);
+    }
+  };
+
   const renderFullPost = (post: any) => (
-    <View key={post._id} style={styles.fullPostContainer}>
+    <View key={post._id} style={[styles.fullPostContainer, { backgroundColor: colors.card }]}>
       {/* Header */}
       <View style={styles.postHeader}>
         <Image
@@ -231,7 +312,7 @@ export default function ProfileScreen() {
           }}
           style={styles.profileAvatar}
         />
-        <Text style={styles.postUsername}>{post.user?.name || name}</Text>
+        <Text style={[styles.postUsername, { color: colors.text }]}>{post.user?.name || name}</Text>
       </View>
 
       {/* Post Image */}
@@ -244,8 +325,8 @@ export default function ProfileScreen() {
 
       {/* Caption */}
       <View style={styles.captionContainer}>
-        <Text style={styles.captionText}>
-          <Text style={styles.usernameBold}>{post.user?.name || name}</Text> {post.caption}
+        <Text style={[styles.captionText, { color: colors.text }]}>
+          <Text style={[styles.usernameBold, { color: colors.text }]}>{post.user?.name || name}</Text> {post.caption}
         </Text>
       </View>
 
@@ -253,8 +334,8 @@ export default function ProfileScreen() {
       {post.comments && post.comments.length > 0 && (
         <View style={styles.commentsList}>
           {post.comments.slice(-2).map((c: any, index: number) => (
-            <Text key={index} style={styles.commentText}>
-              <Text style={styles.usernameBold}>{c.user?.name}</Text> {c.text}
+            <Text key={index} style={[styles.commentText, { color: colors.text }]}>
+              <Text style={[styles.usernameBold, { color: colors.text }]}>{c.user?.name}</Text> {c.text}
             </Text>
           ))}
           {post.comments.length > 2 && <Text style={styles.viewAllText}>View all {post.comments.length} comments</Text>}
@@ -264,13 +345,13 @@ export default function ProfileScreen() {
       {/* Like & Comment Actions */}
       <View style={styles.actionRow}>
         <TouchableOpacity onPress={() => handleLike(post._id)} style={styles.actionButton}>
-          <Ionicons name={post.likes && post.likes.length > 0 ? "heart" : "heart-outline"} size={24} color={post.likes && post.likes.length > 0 ? "red" : "black"} />
-          <Text style={styles.actionText}>{post.likes?.length || 0}</Text>
+          <Ionicons name={post.likes && post.likes.length > 0 ? "heart" : "heart-outline"} size={24} color={post.likes && post.likes.length > 0 ? "red" : colors.text} />
+          <Text style={[styles.actionText, { color: colors.text }]}>{post.likes?.length || 0}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => handleComment(post._id)} style={styles.actionButton}>
-          <Ionicons name="chatbubble-outline" size={24} color="black" />
-          <Text style={styles.actionText}>{post.comments?.length || 0}</Text>
+          <Ionicons name="chatbubble-outline" size={24} color={colors.text} />
+          <Text style={[styles.actionText, { color: colors.text }]}>{post.comments?.length || 0}</Text>
         </TouchableOpacity>
       </View>
 
@@ -278,8 +359,9 @@ export default function ProfileScreen() {
       {activeCommentPostId === post._id && (
         <View style={styles.commentInputRow}>
           <TextInput
-            style={styles.commentInput}
+            style={[styles.commentInput, { color: colors.text, borderColor: colors.border }]}
             placeholder="Add a comment..."
+            placeholderTextColor={colors.text}
             value={commentText}
             onChangeText={setCommentText}
           />
@@ -292,19 +374,19 @@ export default function ProfileScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.iconButton}
         >
-          <Ionicons name="chevron-back" size={24} color="black" />
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>My Profile</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>My Profile</Text>
 
-        <TouchableOpacity style={styles.iconButton}>
-          <Ionicons name="ellipsis-horizontal" size={24} color="black" />
+        <TouchableOpacity style={styles.iconButton} onPress={() => setIsMenuVisible(true)}>
+          <Ionicons name="ellipsis-horizontal" size={24} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -321,19 +403,19 @@ export default function ProfileScreen() {
               <Ionicons name="camera" size={16} color="white" />
             </View>
           </TouchableOpacity>
-          <Text style={styles.userName}>{name}</Text>
-          <Text style={styles.bio}>Less perfection, more authenticity. ✨</Text>
+          <Text style={[styles.userName, { color: colors.text }]}>{name}</Text>
+          <Text style={[styles.bio, { color: colors.text }]}>{bio}</Text>
           <View style={styles.statsContainer}>
             <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{posts.length}</Text>
+              <Text style={[styles.statNumber, { color: colors.text }]}>{posts.length}</Text>
               <Text style={styles.statLabel}>Posts</Text>
             </View>
             <TouchableOpacity style={styles.statBox} onPress={() => fetchFollowList("followers")}>
-              <Text style={styles.statNumber}>{followersCount}</Text>
+              <Text style={[styles.statNumber, { color: colors.text }]}>{followersCount}</Text>
               <Text style={styles.statLabel}>Followers</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.statBox} onPress={() => fetchFollowList("following")}>
-              <Text style={styles.statNumber}>{followingCount}</Text>
+              <Text style={[styles.statNumber, { color: colors.text }]}>{followingCount}</Text>
               <Text style={styles.statLabel}>Following</Text>
             </TouchableOpacity>
           </View>
@@ -341,22 +423,27 @@ export default function ProfileScreen() {
 
         <View style={styles.grid}>
           {posts.map((post, index) => (
-            <TouchableOpacity key={post._id || index} onPress={() => setSelectedPost(post)} style={styles.postContainer}>
+            <TouchableOpacity key={post._id || index} onPress={() => deleteMode ? handleDeletePost(post._id) : setSelectedPost(post)} style={styles.postContainer}>
               <Image
                 source={{ uri: post.image }}
                 style={styles.gridImage}
               />
+              {deleteMode && (
+                <View style={styles.deleteOverlay}>
+                  <Ionicons name="trash" size={20} color="white" />
+                </View>
+              )}
               {post.caption ? (
-                <Text style={styles.caption} numberOfLines={2}>
+                <Text style={[styles.caption, { color: colors.text }]} numberOfLines={2}>
                   {post.caption}
                 </Text>
               ) : null}
               <View style={styles.gridActionRow}>
-                 <Ionicons name={post.likes && post.likes.length > 0 ? "heart" : "heart-outline"} size={14} color={post.likes && post.likes.length > 0 ? "red" : "black"} />
-                 <Text style={styles.gridActionText}>{post.likes?.length || 0}</Text>
+                 <Ionicons name={post.likes && post.likes.length > 0 ? "heart" : "heart-outline"} size={14} color={post.likes && post.likes.length > 0 ? "red" : colors.text} />
+                 <Text style={[styles.gridActionText, { color: colors.text }]}>{post.likes?.length || 0}</Text>
                  <View style={{width: 10}} />
-                 <Ionicons name="chatbubble-outline" size={14} color="black" />
-                 <Text style={styles.gridActionText}>{post.comments?.length || 0}</Text>
+                 <Ionicons name="chatbubble-outline" size={14} color={colors.text} />
+                 <Text style={[styles.gridActionText, { color: colors.text }]}>{post.comments?.length || 0}</Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -364,12 +451,12 @@ export default function ProfileScreen() {
       </ScrollView>
 
       <Modal visible={!!selectedPost} animationType="slide" onRequestClose={() => setSelectedPost(null)}>
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setSelectedPost(null)} style={styles.closeButton}>
-              <Ionicons name="close" size={28} color="black" />
+              <Ionicons name="close" size={28} color={colors.text} />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Post</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Post</Text>
             <View style={{ width: 28 }} />
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
@@ -379,19 +466,19 @@ export default function ProfileScreen() {
       </Modal>
 
       <Modal visible={isListModalVisible} animationType="slide" onRequestClose={() => setIsListModalVisible(false)}>
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => setIsListModalVisible(false)} style={styles.closeButton}>
-              <Ionicons name="close" size={28} color="black" />
+              <Ionicons name="close" size={28} color={colors.text} />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
               {modalListType === "followers" ? "Followers" : "Following"}
             </Text>
             <View style={{ width: 28 }} />
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
             {modalListData.length === 0 ? (
-              <View style={styles.emptyContainer}>
+              <View style={[styles.emptyContainer, { backgroundColor: colors.background }]}>
                 <Ionicons name="people-outline" size={48} color="gray" />
                 <Text style={styles.emptyText}>No users found</Text>
               </View>
@@ -399,7 +486,7 @@ export default function ProfileScreen() {
               modalListData.map((user) => (
                 <TouchableOpacity
                   key={user._id}
-                  style={styles.userItem}
+                  style={[styles.userItem, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
                   onPress={() => {
                     setIsListModalVisible(false);
                     if (user._id !== userId) {
@@ -417,7 +504,7 @@ export default function ProfileScreen() {
                     style={styles.userAvatar}
                   />
                   <View style={styles.userInfo}>
-                    <Text style={styles.userItemName}>{user.name}</Text>
+                    <Text style={[styles.userItemName, { color: colors.text }]}>{user.name}</Text>
                     <Text style={styles.userItemEmail}>{user.email}</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color="lightgray" />
@@ -427,6 +514,52 @@ export default function ProfileScreen() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      {/* Menu Options Modal */}
+      <Modal visible={isMenuVisible} transparent animationType="fade" onRequestClose={() => setIsMenuVisible(false)}>
+        <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setIsMenuVisible(false)}>
+          <View style={[styles.menuContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <TouchableOpacity style={styles.menuOption} onPress={() => { setIsMenuVisible(false); setIsEditNameVisible(true); }}>
+              <Text style={{ color: colors.text }}>Edit Name</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuOption} onPress={() => { setIsMenuVisible(false); setIsEditBioVisible(true); }}>
+              <Text style={{ color: colors.text }}>Edit Bio</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuOption} onPress={() => { setIsMenuVisible(false); setDeleteMode(!deleteMode); }}>
+              <Text style={{ color: deleteMode ? "gray" : "red" }}>{deleteMode ? "Done Deleting" : "Edit Post (Delete)"}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Edit Name Modal */}
+      <Modal visible={isEditNameVisible} transparent animationType="slide">
+        <View style={styles.modalOverlayCenter}>
+          <View style={[styles.editModal, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 15 }]}>Edit Name (Once every 3 months)</Text>
+            <TextInput style={[styles.editInput, { color: colors.text, borderColor: colors.border }]} value={newName} onChangeText={setNewName} placeholderTextColor={colors.text} />
+            <View style={styles.editActions}>
+              <TouchableOpacity onPress={() => setIsEditNameVisible(false)}><Text style={{color: 'gray'}}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => handleUpdateProfile("name")}><Text style={{color: colors.primary, fontWeight: 'bold'}}>Save</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Bio Modal */}
+      <Modal visible={isEditBioVisible} transparent animationType="slide">
+        <View style={styles.modalOverlayCenter}>
+          <View style={[styles.editModal, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 15 }]}>Edit Bio</Text>
+            <TextInput style={[styles.editInput, { color: colors.text, borderColor: colors.border }]} value={newBio} onChangeText={setNewBio} placeholderTextColor={colors.text} multiline />
+            <View style={styles.editActions}>
+              <TouchableOpacity onPress={() => setIsEditBioVisible(false)}><Text style={{color: 'gray'}}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => handleUpdateProfile("bio")}><Text style={{color: colors.primary, fontWeight: 'bold'}}>Save</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -670,4 +803,12 @@ const styles = StyleSheet.create({
     color: "gray",
     marginTop: 10,
   },
+  menuOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "flex-start", alignItems: "flex-end", paddingTop: 50, paddingRight: 20 },
+  menuContainer: { width: 150, borderRadius: 8, borderWidth: 1, overflow: "hidden", elevation: 5 },
+  menuOption: { padding: 15, borderBottomWidth: 1, borderBottomColor: "#eee" },
+  modalOverlayCenter: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
+  editModal: { width: "80%", padding: 20, borderRadius: 12, borderWidth: 1 },
+  editInput: { borderWidth: 1, borderRadius: 8, padding: 10, marginBottom: 20 },
+  editActions: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 20 },
+  deleteOverlay: { position: "absolute", top: 5, right: 5, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 12, padding: 5 }
 });

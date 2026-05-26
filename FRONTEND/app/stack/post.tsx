@@ -4,8 +4,10 @@ import * as ImagePicker from "expo-image-picker";
 import API from "../../config/api";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTheme } from "../../context/ThemeContext";
 
 export default function Post() {
+  const { colors } = useTheme();
   const [image, setImage] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
   const router = useRouter();
@@ -97,30 +99,35 @@ export default function Post() {
   };
 
   return (
-    <View style={{ padding: 20 }}>
-      <Text style={{ fontSize: 20, marginBottom: 10 }}>Create Post</Text>
+    <View style={{ padding: 20, flex: 1, backgroundColor: colors.background }}>
+      <Text style={{ fontSize: 20, marginBottom: 10, color: colors.text }}>Create Post</Text>
 
-      <Button title="Pick Image" onPress={pickImage} />
+      <Button title="Pick Image" onPress={pickImage} color={colors.primary} />
 
       {image && (
         <Image
           source={{ uri: image }}
-          style={{ width: 200, height: 200, marginTop: 10 }}
+          style={{ width: 200, height: 200, marginTop: 10, alignSelf: 'center', borderRadius: 8 }}
         />
       )}
 
       <TextInput
         placeholder="Write a caption..."
+        placeholderTextColor={colors.text}
         value={caption}
         onChangeText={setCaption}
         style={{
           borderWidth: 1,
+          borderColor: colors.border,
+          color: colors.text,
           marginTop: 10,
           padding: 10,
+          borderRadius: 8,
+          marginBottom: 15
         }}
       />
 
-      <Button title="Post" onPress={handlePost} />
+      <Button title="Post" onPress={handlePost} color={colors.primary} />
     </View>
   );
 }

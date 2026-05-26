@@ -4,8 +4,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { BASE_URL } from "../../config/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
+import { useTheme } from "../../context/ThemeContext";
 
 const Search = () => {
+  const { colors } = useTheme();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -46,19 +48,19 @@ const Search = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerText}>Search</Text>
+      <View style={[styles.header, { backgroundColor: colors.card }]}>
+        <Text style={[styles.headerText, { color: colors.text }]}>Search</Text>
       </View>
 
       {/* Search Box */}
-      <View style={styles.searchBox}>
-        <Ionicons name="search" size={20} color="gray" />
+      <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Ionicons name="search" size={20} color={colors.text} />
         <TextInput
           placeholder="Search Your Friend..."
-          placeholderTextColor="#999"
-          style={styles.searchInput}
+          placeholderTextColor={colors.text}
+          style={[styles.searchInput, { color: colors.text }]}
           value={query}
           onChangeText={setQuery}
         />
@@ -68,9 +70,9 @@ const Search = () => {
       {loading && <ActivityIndicator size="large" style={{ marginTop: 20 }} />}
       <ScrollView showsVerticalScrollIndicator={false} style={styles.results}>
         {results.map((user) => (
-          <TouchableOpacity key={user._id} style={styles.resultItem} onPress={() => goToProfile(user)}>
+          <TouchableOpacity key={user._id} style={[styles.resultItem, { borderBottomColor: colors.border }]} onPress={() => goToProfile(user)}>
             <Image source={{ uri: user.profilePic || "https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg" }} style={styles.avatar} />
-            <Text style={styles.resultName}>{user.name}</Text>
+            <Text style={[styles.resultName, { color: colors.text }]}>{user.name}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>

@@ -18,6 +18,14 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: ""
     },
+    bio: {
+        type: String,
+        default: "Less perfection, more authenticity. ✨"
+    },
+    lastNameUpdate: {
+        type: Date,
+        default: null
+    },
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
 });

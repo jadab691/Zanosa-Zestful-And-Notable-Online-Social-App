@@ -13,8 +13,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BASE_URL } from "../../config/api";
+import { useTheme } from "../../context/ThemeContext";
 
 const Home = () => {
+  const { colors } = useTheme();
   const router = useRouter();
   const [posts, setPosts] = useState<any[]>([]);
   const [myEmail, setMyEmail] = useState<string>("");
@@ -113,7 +115,7 @@ const Home = () => {
   };
 
   const renderPost = (post: any) => (
-    <View key={post._id} style={styles.postContainer}>
+    <View key={post._id} style={[styles.postContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
       {/* Header */}
       <View style={styles.postHeader}>
         <Image
@@ -124,7 +126,7 @@ const Home = () => {
         />
 
         <Pressable onPress={() => handleUsernamePress(post)}>
-            <Text style={styles.username}>{post.user?.name || "Unknown User"}</Text>
+            <Text style={[styles.username, { color: colors.text }]}>{post.user?.name || "Unknown User"}</Text>
           </Pressable>
       </View>
 
@@ -138,8 +140,8 @@ const Home = () => {
 
       {/* Caption */}
       <View style={styles.captionContainer}>
-        <Text style={styles.captionText}>
-          <Text style={styles.usernameBold}>{post.user?.name}</Text> {post.caption}
+        <Text style={[styles.captionText, { color: colors.text }]}>
+          <Text style={[styles.usernameBold, { color: colors.text }]}>{post.user?.name}</Text> {post.caption}
         </Text>
       </View>
 
@@ -147,8 +149,8 @@ const Home = () => {
       {post.comments && post.comments.length > 0 && (
         <View style={styles.commentsList}>
           {post.comments.slice(-2).map((c: any, index: number) => (
-            <Text key={index} style={styles.commentText}>
-              <Text style={styles.usernameBold}>{c.user?.name}</Text> {c.text}
+            <Text key={index} style={[styles.commentText, { color: colors.text }]}>
+              <Text style={[styles.usernameBold, { color: colors.text }]}>{c.user?.name}</Text> {c.text}
             </Text>
           ))}
           {post.comments.length > 2 && <Text style={styles.viewAllText}>View all {post.comments.length} comments</Text>}
@@ -158,13 +160,13 @@ const Home = () => {
       {/* Like & Comment */}
       <View style={styles.actionRow}>
         <Pressable onPress={() => handleLike(post._id)} style={styles.actionButton}>
-          <Ionicons name={post.likes && post.likes.length > 0 ? "heart" : "heart-outline"} size={24} color={post.likes && post.likes.length > 0 ? "red" : "black"} />
-          <Text style={styles.actionText}>{post.likes?.length || 0}</Text>
+          <Ionicons name={post.likes && post.likes.length > 0 ? "heart" : "heart-outline"} size={24} color={post.likes && post.likes.length > 0 ? "red" : colors.text} />
+          <Text style={[styles.actionText, { color: colors.text }]}>{post.likes?.length || 0}</Text>
         </Pressable>
 
         <Pressable onPress={() => handleComment(post._id)} style={styles.actionButton}>
-          <Ionicons name="chatbubble-outline" size={24} color="black" />
-          <Text style={styles.actionText}>{post.comments?.length || 0}</Text>
+          <Ionicons name="chatbubble-outline" size={24} color={colors.text} />
+          <Text style={[styles.actionText, { color: colors.text }]}>{post.comments?.length || 0}</Text>
         </Pressable>
       </View>
 
@@ -172,8 +174,9 @@ const Home = () => {
       {activeCommentPostId === post._id && (
         <View style={styles.commentInputRow}>
           <TextInput
-            style={styles.commentInput}
+            style={[styles.commentInput, { color: colors.text, borderColor: colors.border }]}
             placeholder="Add a comment..."
+            placeholderTextColor={colors.text}
             value={commentText}
             onChangeText={setCommentText}
           />
@@ -186,10 +189,10 @@ const Home = () => {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.appTitle}>Zanosa</Text>
+        <Text style={[styles.appTitle, { color: colors.text }]}>Zanosa</Text>
 
         <Pressable onPress={handlePost} style={styles.postButton}>
           <Text style={styles.postButtonText}>Post</Text>

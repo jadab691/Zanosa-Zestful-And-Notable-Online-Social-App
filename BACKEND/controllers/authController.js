@@ -32,13 +32,13 @@ export const signup = async (req, res) => {
       await EmailVerification.findOneAndUpdate(
         { email },
         { code: generatedOtp, expiresAt },
-        { upsert: true, new: true }
+        { upsert: true, returnDocument: 'after' }
       );
       // Send email
       await sendEmail({
         to: email,
-        subject: "Your verification code",
-        text: `Your verification code is ${generatedOtp}`
+        subject: "Zanosa - OTP Verification",
+        text: `Your verification code for ZANOSA signup is ${generatedOtp}`
       });
       return res.status(200).json({ message: "OTP sent to email" });
     }
@@ -198,6 +198,17 @@ export const updateProfilePic = async (req, res) => {
       req.file.secure_url ||
       req.file.url;
 
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: Number(process.env.EMAIL_PORT) || 587,
+      secure: false,
+      family: 4,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
     const user = await User.findByIdAndUpdate(
       req.user.id || req.user._id,
       { profilePic: imageUrl },
@@ -250,7 +261,7 @@ export const updateProfile = async (req, res) => {
       updateData.lastNameUpdate = new Date();
     }
 
-    const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true }).select("-password");
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, { returnDocument: 'after' }).select("-password");
     res.status(200).json(updatedUser);
   } catch (error) {
     console.log(error);

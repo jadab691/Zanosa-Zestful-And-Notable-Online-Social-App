@@ -12,9 +12,12 @@ const Message = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const email = await AsyncStorage.getItem("userEmail");
-        const response = await axios.get(`${BASE_URL}/api/auth/users`);
-        setUsers(response.data.filter((u: any) => u.email !== email));
+        const token = await AsyncStorage.getItem("token");
+        if (!token) return;
+        const response = await axios.get(`${BASE_URL}/api/auth/chatted-users`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUsers(response.data);
       } catch (error) {
         console.log(error);
       }

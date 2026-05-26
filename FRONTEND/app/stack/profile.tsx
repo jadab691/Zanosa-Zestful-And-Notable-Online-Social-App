@@ -28,10 +28,17 @@ export default function ProfileScreen() {
   const [name, setName] = useState("Example User");
   const [posts, setPosts] = useState<any[]>([]);
   const [profilePic, setProfilePic] = useState<string>("");
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [userId, setUserId] = useState<string>("");
 
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
+
+  const [isListModalVisible, setIsListModalVisible] = useState(false);
+  const [modalListType, setModalListType] = useState<"followers" | "following">("followers");
+  const [modalListData, setModalListData] = useState<any[]>([]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -48,8 +55,11 @@ export default function ProfileScreen() {
         });
         if (profileRes.ok) {
           const profileData = await profileRes.json();
+          if (profileData._id) setUserId(profileData._id);
           if (profileData.name) setName(profileData.name);
           if (profileData.profilePic) setProfilePic(profileData.profilePic);
+          setFollowersCount(profileData.followers?.length || 0);
+          setFollowingCount(profileData.following?.length || 0);
         }
 
         // Fetch user posts
@@ -67,6 +77,26 @@ export default function ProfileScreen() {
 
     loadProfile();
   }, []);
+
+  const fetchFollowList = async (type: "followers" | "following") => {
+    if (!userId) return;
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const res = await fetch(`${BASE_URL}/api/auth/users/${userId}/${type}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setModalListData(data);
+        setModalListType(type);
+        setIsListModalVisible(true);
+      } else {
+        Alert.alert("Error", `Could not fetch ${type}`);
+      }
+    } catch (err) {
+      console.log(`Error fetching ${type}:`, err);
+    }
+  };
 
   const changeProfilePic = async () => {
     try {
@@ -293,6 +323,20 @@ export default function ProfileScreen() {
           </TouchableOpacity>
           <Text style={styles.userName}>{name}</Text>
           <Text style={styles.bio}>Less perfection, more authenticity. ✨</Text>
+          <View style={styles.statsContainer}>
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>{posts.length}</Text>
+              <Text style={styles.statLabel}>Posts</Text>
+            </View>
+            <TouchableOpacity style={styles.statBox} onPress={() => fetchFollowList("followers")}>
+              <Text style={styles.statNumber}>{followersCount}</Text>
+              <Text style={styles.statLabel}>Followers</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.statBox} onPress={() => fetchFollowList("following")}>
+              <Text style={styles.statNumber}>{followingCount}</Text>
+              <Text style={styles.statLabel}>Following</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.grid}>
@@ -330,6 +374,56 @@ export default function ProfileScreen() {
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
             {selectedPost && renderFullPost(selectedPost)}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      <Modal visible={isListModalVisible} animationType="slide" onRequestClose={() => setIsListModalVisible(false)}>
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setIsListModalVisible(false)} style={styles.closeButton}>
+              <Ionicons name="close" size={28} color="black" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>
+              {modalListType === "followers" ? "Followers" : "Following"}
+            </Text>
+            <View style={{ width: 28 }} />
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {modalListData.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="people-outline" size={48} color="gray" />
+                <Text style={styles.emptyText}>No users found</Text>
+              </View>
+            ) : (
+              modalListData.map((user) => (
+                <TouchableOpacity
+                  key={user._id}
+                  style={styles.userItem}
+                  onPress={() => {
+                    setIsListModalVisible(false);
+                    if (user._id !== userId) {
+                      router.push({
+                        pathname: "/stack/userprofile",
+                        params: { id: user._id, name: user.name, email: user.email, profilePic: user.profilePic },
+                      });
+                    }
+                  }}
+                >
+                  <Image
+                    source={{
+                      uri: user.profilePic || "https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg?semt=ais_hybrid&w=740&q=80",
+                    }}
+                    style={styles.userAvatar}
+                  />
+                  <View style={styles.userInfo}>
+                    <Text style={styles.userItemName}>{user.name}</Text>
+                    <Text style={styles.userItemEmail}>{user.email}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="lightgray" />
+                </TouchableOpacity>
+              ))
+            )}
           </ScrollView>
         </SafeAreaView>
       </Modal>
@@ -382,6 +476,24 @@ const styles = StyleSheet.create({
     color: "#7D8699",
     marginTop: 10,
     paddingHorizontal: 40,
+  },
+  statsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    width: "100%",
+    marginTop: 20,
+    paddingHorizontal: 20,
+  },
+  statBox: {
+    alignItems: "center",
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  statLabel: {
+    fontSize: 14,
+    color: "gray",
   },
   grid: {
     paddingTop: 20,
@@ -519,5 +631,43 @@ const styles = StyleSheet.create({
   submitCommentText: {
     color: "#318CE7",
     fontWeight: "600",
+  },
+  userItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F2F5",
+  },
+  userAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 15,
+    backgroundColor: "#E4E6EB",
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userItemName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1A1A1A",
+  },
+  userItemEmail: {
+    fontSize: 13,
+    color: "#65676B",
+    marginTop: 2,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 80,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "gray",
+    marginTop: 10,
   },
 });

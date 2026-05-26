@@ -29,10 +29,37 @@ const Userprofile = () => {
   const email = Array.isArray(params.email) ? params.email[0] : params.email;
   const paramsProfilePic = Array.isArray(params.profilePic) ? params.profilePic[0] : params.profilePic;
   const [following, setFollowing] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
   const [posts, setPosts] = useState<any[]>([]);
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+
+  const [isListModalVisible, setIsListModalVisible] = useState(false);
+  const [modalListType, setModalListType] = useState<"followers" | "following">("followers");
+  const [modalListData, setModalListData] = useState<any[]>([]);
+
+  const fetchFollowList = async (type: "followers" | "following") => {
+    if (!id) return;
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const res = await fetch(`${BASE_URL}/api/auth/users/${id}/${type}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setModalListData(data);
+        setModalListType(type);
+        setIsListModalVisible(true);
+      } else {
+        Alert.alert("Error", `Could not fetch ${type}`);
+      }
+    } catch (err) {
+      console.log(`Error fetching ${type}:`, err);
+    }
+  };
 
   const handleLike = async (postId: string) => {
     try {
@@ -150,23 +177,62 @@ const Userprofile = () => {
   );
 
   useEffect(() => {
-    const fetchUserPosts = async () => {
+    const fetchData = async () => {
       if (!id) return;
       try {
         const token = await AsyncStorage.getItem("token");
-        const res = await fetch(`${BASE_URL}/api/posts/user/${id}`, {
+        
+        // Fetch posts
+        const postsRes = await fetch(`${BASE_URL}/api/posts/user/${id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setPosts(data);
+        const postsData = await postsRes.json();
+        if (Array.isArray(postsData)) setPosts(postsData);
+
+        // Fetch target user details
+        const targetRes = await fetch(`${BASE_URL}/api/auth/users/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const targetData = await targetRes.json();
+        if (targetRes.ok) {
+          setFollowersCount(targetData.followers?.length || 0);
+          setFollowingCount(targetData.following?.length || 0);
         }
+
+        // Fetch current user to check if following
+        const profileRes = await fetch(`${BASE_URL}/api/auth/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const profileData = await profileRes.json();
+        if (profileRes.ok) {
+          if (profileData._id) setCurrentUserId(profileData._id);
+          const isFollowing = profileData.following?.includes(id);
+          setFollowing(!!isFollowing);
+        }
+
       } catch (err) {
-        console.log("Error fetching user posts:", err);
+        console.log("Error fetching user data:", err);
       }
     };
-    fetchUserPosts();
+    fetchData();
   }, [id]);
+
+  const toggleFollow = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const res = await fetch(`${BASE_URL}/api/auth/users/${id}/follow`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setFollowing(data.following);
+        setFollowersCount((prev) => data.following ? prev + 1 : prev - 1);
+      }
+    } catch (error) {
+      console.log("Error following user", error);
+    }
+  };
 
   return (
     <>
@@ -190,15 +256,15 @@ const Userprofile = () => {
             <Text style={styles.statLabel}>Posts</Text>
           </View>
 
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>0</Text>
+          <TouchableOpacity style={styles.statBox} onPress={() => fetchFollowList("followers")}>
+            <Text style={styles.statNumber}>{followersCount}</Text>
             <Text style={styles.statLabel}>Followers</Text>
-          </View>
+          </TouchableOpacity>
  
-          <View style={styles.statBox}>
-            <Text style={styles.statNumber}>0</Text>
+          <TouchableOpacity style={styles.statBox} onPress={() => fetchFollowList("following")}>
+            <Text style={styles.statNumber}>{followingCount}</Text>
             <Text style={styles.statLabel}>Following</Text>
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -217,9 +283,9 @@ const Userprofile = () => {
             styles.followButton,
             following && { backgroundColor: "#ddd" },
           ]}
-          onPress={() => setFollowing(!following)}
+          onPress={toggleFollow}
         >
-          <Text style={{ fontWeight: "600" }}>
+          <Text style={[{ fontWeight: "600" }, following && { color: "#000" }, !following && { color: "#fff" }]}>
             {following ? "Following" : "Follow"}
           </Text>
         </TouchableOpacity>
@@ -270,6 +336,58 @@ const Userprofile = () => {
         </View>
         <ScrollView showsVerticalScrollIndicator={false}>
           {selectedPost && renderFullPost(selectedPost)}
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
+
+    <Modal visible={isListModalVisible} animationType="slide" onRequestClose={() => setIsListModalVisible(false)}>
+      <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={() => setIsListModalVisible(false)} style={styles.closeButton}>
+            <Ionicons name="close" size={28} color="black" />
+          </TouchableOpacity>
+          <Text style={styles.modalTitle}>
+            {modalListType === "followers" ? "Followers" : "Following"}
+          </Text>
+          <View style={{ width: 28 }} />
+        </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {modalListData.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="people-outline" size={48} color="gray" />
+              <Text style={styles.emptyText}>No users found</Text>
+            </View>
+          ) : (
+            modalListData.map((user) => (
+              <TouchableOpacity
+                key={user._id}
+                style={styles.userItem}
+                onPress={() => {
+                  setIsListModalVisible(false);
+                  if (user._id === currentUserId) {
+                    router.push("/stack/profile");
+                  } else if (user._id !== id) {
+                    router.push({
+                      pathname: "/stack/userprofile",
+                      params: { id: user._id, name: user.name, email: user.email, profilePic: user.profilePic },
+                    });
+                  }
+                }}
+              >
+                <Image
+                  source={{
+                    uri: user.profilePic || "https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg?semt=ais_hybrid&w=740&q=80",
+                  }}
+                  style={styles.userAvatar}
+                />
+                <View style={styles.userInfo}>
+                  <Text style={styles.userItemName}>{user.name}</Text>
+                  <Text style={styles.userItemEmail}>{user.email}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="lightgray" />
+              </TouchableOpacity>
+            ))
+          )}
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -501,5 +619,45 @@ const styles = StyleSheet.create({
   submitCommentText: {
     color: "#318CE7",
     fontWeight: "600",
+  },
+  userItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F2F5",
+    backgroundColor: "#fff",
+  },
+  userAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 15,
+    backgroundColor: "#E4E6EB",
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userItemName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1A1A1A",
+  },
+  userItemEmail: {
+    fontSize: 13,
+    color: "#65676B",
+    marginTop: 2,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 80,
+    backgroundColor: "#fff",
+  },
+  emptyText: {
+    fontSize: 16,
+    color: "gray",
+    marginTop: 10,
   },
 });

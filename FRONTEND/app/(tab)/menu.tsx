@@ -49,10 +49,10 @@ const Menu = () => {
             // Clear stored user info
             await AsyncStorage.removeItem("userEmail");
             await AsyncStorage.removeItem("userName");
-           
+            await AsyncStorage.removeItem("token");
 
-            // Navigate to login
-            router.push("/stack/login");
+            // Navigate to login (using replace so back button doesn't reopen app)
+            router.replace("/stack/login");
           } catch (err) {
             console.log("Logout error:", err);
             alert("Could not log out. Try again.");

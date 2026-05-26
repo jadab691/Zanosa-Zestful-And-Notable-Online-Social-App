@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { sendEmail } from "../utils/mailer.js";
 import EmailVerification from "../models/emailVerification.js";
+import Message from "../models/message.js";
 
 // ================= SIGNUP =================
 export const signup = async (req, res) => {
@@ -114,8 +115,57 @@ export const login = async (req, res) => {
 // ================= GET ALL USERS =================
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({}, "name email _id profilePic");
+    const search = req.query.search || '';
+    const query = search
+      ? { name: { $regex: search, $options: 'i' } }
+      : {};
+    const users = await User.find(query, "name email _id profilePic");
     res.status(200).json(users);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const followUser = async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    const currentUserId = req.user._id;
+    if (currentUserId === targetId) {
+      return res.status(400).json({ message: "Cannot follow yourself" });
+    }
+    const targetUser = await User.findById(targetId);
+    const currentUser = await User.findById(currentUserId);
+    if (!targetUser || !currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const isFollowing = currentUser.following.includes(targetId);
+    if (isFollowing) {
+      // Unfollow
+      currentUser.following.pull(targetId);
+      targetUser.followers.pull(currentUserId);
+    } else {
+      // Follow
+      currentUser.following.push(targetId);
+      targetUser.followers.push(currentUserId);
+    }
+    await currentUser.save();
+    await targetUser.save();
+    res.status(200).json({ following: !isFollowing });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ================= GET USER BY ID =================
+export const getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json(user);
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Internal server error" });
@@ -163,6 +213,65 @@ export const updateProfilePic = async (req, res) => {
       profilePic: user.profilePic,
       user,
     });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ================= GET FOLLOWERS =================
+export const getFollowers = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).populate("followers", "name profilePic email _id");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json(user.followers || []);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ================= GET FOLLOWING =================
+export const getFollowing = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).populate("following", "name profilePic email _id");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.status(200).json(user.following || []);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// ================= GET CHATTED USERS =================
+export const getChattedUsers = async (req, res) => {
+  try {
+    const currentEmail = req.user.email;
+    if (!currentEmail) {
+      return res.status(400).json({ message: "User email not found" });
+    }
+    const messages = await Message.find({
+      $or: [
+        { senderEmail: currentEmail },
+        { receiverEmail: currentEmail }
+      ]
+    }).select("senderEmail receiverEmail");
+
+    const chattedEmails = new Set();
+    messages.forEach(msg => {
+      if (msg.senderEmail !== currentEmail) chattedEmails.add(msg.senderEmail);
+      if (msg.receiverEmail !== currentEmail) chattedEmails.add(msg.receiverEmail);
+    });
+
+    const users = await User.find(
+      { email: { $in: Array.from(chattedEmails) } },
+      "name email _id profilePic"
+    );
+    res.status(200).json(users);
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Internal server error" });

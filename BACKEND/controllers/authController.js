@@ -46,7 +46,7 @@ export const signup = async (req, res) => {
     // Verify OTP
     const verification = await EmailVerification.findOne({ email, code: otp });
     if (!verification) {
-      return res.status(400).json({ message: "Invalid or expired OTP" });
+      return res.status(400).json({ message: "Invalid OTP" });
     }
     if (verification.expiresAt < new Date()) {
       return res.status(400).json({ message: "OTP has expired" });

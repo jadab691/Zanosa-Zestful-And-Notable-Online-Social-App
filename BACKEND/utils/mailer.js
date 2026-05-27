@@ -4,15 +4,18 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
-  host: "74.125.24.108", // force IPv4
-  port: 465,
-  secure: true,
-
+  // Prefer Gmail service when EMAIL_HOST isn’t defined; otherwise use the supplied host/port.
+  ...(process.env.EMAIL_HOST
+    ? {
+        host: process.env.EMAIL_HOST,
+        port: Number(process.env.EMAIL_PORT) || 587,
+        secure: Number(process.env.EMAIL_PORT) === 465,
+      }
+    : { service: "gmail" }),
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-
   tls: {
     servername: "smtp.gmail.com",
   },

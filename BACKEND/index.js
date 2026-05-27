@@ -6,7 +6,7 @@ import { initSocket } from "./socket.js";
 
 connectDB();
 
-const PORT = process.env.PORT || 5500;
+const PORT = process.env.PORT || 5700;
 
 const server = createServer(app);
 initSocket(server);

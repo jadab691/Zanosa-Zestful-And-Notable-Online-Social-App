@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../../context/AuthContext";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -12,6 +13,8 @@ import {
   View,
   ScrollView,
   Alert,
+  RefreshControl,
+  ActivityIndicator,
 } from "react-native";
 import { BASE_URL } from "@/config/api";
 
@@ -24,12 +27,30 @@ export default function SignupScreen() {
   const [step, setStep] = useState("signup"); // signup or verify
 
   const router = useRouter();
+  const { user } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    setName("");
+    setEmail("");
+    setPassword("");
+    setOtp("");
+    setStep("signup");
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setRefreshing(false);
+  };
+
+
 
   const handleSignup = async () => {
     if (!name || !email || !password) {
       Alert.alert("Error", "Please fill all fields");
       return;
     }
+
+    setLoading(true);
     if (step === "signup") {
       // initial request to send OTP
       try {
@@ -47,11 +68,14 @@ export default function SignupScreen() {
         }
       } catch (err) {
         console.log(err);
-        Alert.alert("Error", "Something went wrong");
+        Alert.alert("Error", "Something went wrong OTP was not sent , Please Try Again!");
+      } finally {
+        setLoading(false);
       }
     } else if (step === "verify") {
       if (!otp) {
         Alert.alert("Error", "Please enter the OTP code");
+        setLoading(false);
         return;
       }
       try {
@@ -69,7 +93,9 @@ export default function SignupScreen() {
         }
       } catch (err) {
         console.log(err);
-        Alert.alert("Error", "Something went wrong");
+        Alert.alert("Error", "Wrong Otp , Try Again!");
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -84,6 +110,9 @@ export default function SignupScreen() {
           contentContainerStyle={{ flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
         >
           <View style={styles.inner}>
             {/* Header */}
@@ -160,10 +189,14 @@ export default function SignupScreen() {
               )}
 
               {/* Button */}
-              <TouchableOpacity style={styles.button} onPress={handleSignup}>
-                <Text style={styles.buttonText}>
-                  {step === "signup" ? "Create Account" : "Verify OTP"}
-                </Text>
+              <TouchableOpacity style={styles.button} onPress={handleSignup} disabled={loading}>
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>
+                    {step === "signup" ? "Create Account" : "Verify OTP"}
+                  </Text>
+                )}
               </TouchableOpacity>
 
               {/* Login Link */}
@@ -192,7 +225,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 20,
   },
-  brandName: { fontSize: 22, fontWeight: "800", color: "#1A1C1E" },
+  brandName: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#ddc7ffff",
+
+    textShadowColor: "rgba(74, 0, 247, 0.8)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 12,
+
+    letterSpacing: 5,
+  },
   titleSection: { alignItems: "center", marginTop: 40, marginBottom: 30 },
   titleText: {
     fontSize: 32,
@@ -229,7 +272,7 @@ const styles = StyleSheet.create({
   },
   passwordInput: { flex: 1, paddingHorizontal: 20 },
   button: {
-    backgroundColor: "#318CE7",
+    backgroundColor: "#fb80c6ff",
     height: 60,
     borderRadius: 30,
     justifyContent: "center",

@@ -17,7 +17,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { io, Socket } from "socket.io-client";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../context/ThemeContext";
@@ -34,6 +34,7 @@ interface Message {
 
 const Inbox = () => {
   const { colors } = useTheme();
+  const router = useRouter();
   const params = useLocalSearchParams();
   const chatPartnerEmail = Array.isArray(params.chatPartnerEmail)
     ? params.chatPartnerEmail[0]
@@ -41,6 +42,9 @@ const Inbox = () => {
   const chatPartnerName = Array.isArray(params.chatPartnerName)
     ? params.chatPartnerName[0]
     : (params.chatPartnerName as string) ?? "Chat";
+  const chatPartnerProfilePic = Array.isArray(params.chatPartnerProfilePic)
+    ? params.chatPartnerProfilePic[0]
+    : (params.chatPartnerProfilePic as string) ?? "";
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -180,6 +184,15 @@ const Inbox = () => {
         {/* Header */}
         <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
           >
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={colors.text} />
+          </TouchableOpacity>
+          <Image
+            source={{
+              uri: chatPartnerProfilePic || "https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg?semt=ais_hybrid&w=740&q=80",
+            }}
+            style={styles.headerAvatar}
+          />
           <Text style={[styles.headerText, { color: colors.text }]}>{chatPartnerName || "Chat"}</Text>
         </View>
 
@@ -241,7 +254,7 @@ const Inbox = () => {
           </TouchableOpacity>
           <TextInput
             style={[styles.textInput, { color: colors.text }]}
-            placeholder="Type a message..."
+            placeholder="Type the message ..."
             placeholderTextColor={colors.text + "88"}
             value={input}
             onChangeText={setInput}
@@ -251,7 +264,7 @@ const Inbox = () => {
             onKeyPress={(e) => { if (e.nativeEvent.key === 'Enter') handleSend(); }}
           />
           <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-            <Text style={styles.sendButtonText}>Send</Text>
+            <Text style={styles.sendButtonText}>State</Text>
           </TouchableOpacity>
         </View>
     </KeyboardAvoidingView>
@@ -268,26 +281,38 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    padding: 15,
+    padding: 10,
     borderBottomWidth: 1,
     marginBottom: 5,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  backButton: {
+    marginRight: 10,
+  },
+
+  headerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 12,
   },
 
   headerText: {
     fontSize: 20,
     fontWeight: "bold",
-    textAlign: "center",
   },
 
   messageBubble: {
     padding: 10,
     borderRadius: 16,
     marginBottom: 10,
-    maxWidth: "78%",
+    maxWidth: "80%",
   },
 
   myMessage: {
-    backgroundColor: "#5868f5",
+    backgroundColor: "#a52cfbff",
     alignSelf: "flex-end",
     borderBottomRightRadius: 4,
   },
@@ -300,7 +325,7 @@ const styles = StyleSheet.create({
 
   messageText: {
     fontSize: 16,
-    color: "#fff",
+    color: "#ffffffff",
   },
 
   chatImage: {
@@ -311,7 +336,7 @@ const styles = StyleSheet.create({
   },
 
   timestamp: {
-    fontSize: 11,
+    fontSize: 10,
     marginTop: 4,
     alignSelf: "flex-end",
   },
@@ -350,7 +375,7 @@ const styles = StyleSheet.create({
 
   sendButton: {
     marginLeft: 10,
-    backgroundColor: "#5868f5",
+    backgroundColor: "#58c1f5ff",
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: 10,

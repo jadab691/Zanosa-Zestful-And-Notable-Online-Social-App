@@ -12,6 +12,7 @@ import {
   Platform,
   StatusBar,
   SafeAreaView,
+  RefreshControl,
 } from "react-native";
 import React, { useState, useEffect } from "react";
 import { Link, useLocalSearchParams, useRouter } from "expo-router";
@@ -37,11 +38,37 @@ const Userprofile = () => {
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
+  const [expandedComments, setExpandedComments] = useState<{[key: string]: boolean}>({});
+
+  const toggleComments = (postId: string) => {
+    setExpandedComments(prev => ({
+      ...prev,
+      [postId]: !prev[postId]
+    }));
+  };
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [myEmail, setMyEmail] = useState<string>("");
+
+  const handleUserProfileNav = (targetUser: any) => {
+    if (!targetUser) return;
+    if (targetUser._id === currentUserId || (targetUser.email && targetUser.email === myEmail)) {
+      setSelectedPost(null);
+      router.push("/stack/profile");
+    } else if (targetUser._id === id) {
+      setSelectedPost(null);
+    } else {
+      setSelectedPost(null);
+      router.push({
+        pathname: "/stack/userprofile",
+        params: { id: targetUser._id, name: targetUser.name, email: targetUser.email, profilePic: targetUser.profilePic },
+      });
+    }
+  };
 
   const [isListModalVisible, setIsListModalVisible] = useState(false);
   const [modalListType, setModalListType] = useState<"followers" | "following">("followers");
   const [modalListData, setModalListData] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchFollowList = async (type: "followers" | "following") => {
     if (!id) return;
@@ -141,18 +168,34 @@ const Userprofile = () => {
 
       {post.comments && post.comments.length > 0 && (
         <View style={styles.commentsList}>
-          {post.comments.slice(-2).map((c: any, index: number) => (
+          {(expandedComments[post._id] ? post.comments : post.comments.slice(-2)).map((c: any, index: number) => (
             <Text key={index} style={[styles.commentText, { color: colors.text }]}>
-              <Text style={[styles.usernameBold, { color: colors.text }]}>{c.user?.name}</Text> {c.text}
+              <Text 
+                style={[styles.usernameBold, { color: colors.text }]}
+                onPress={() => handleUserProfileNav(c.user)}
+              >
+                {c.user?.name || "Unknown"}
+              </Text>{" "}
+              {c.text}
             </Text>
           ))}
-          {post.comments.length > 2 && <Text style={styles.viewAllText}>View all {post.comments.length} comments</Text>}
+          {post.comments.length > 2 && (
+            <TouchableOpacity onPress={() => toggleComments(post._id)}>
+              <Text style={styles.viewAllText}>
+                {expandedComments[post._id] ? "Hide comments" : `View all ${post.comments.length} comments`}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
       <View style={styles.actionRow}>
         <TouchableOpacity onPress={() => handleLike(post._id)} style={styles.actionButton}>
-          <Ionicons name={post.likes && post.likes.length > 0 ? "heart" : "heart-outline"} size={24} color={post.likes && post.likes.length > 0 ? "red" : colors.text} />
+          <Ionicons
+            name={post.likes && post.likes.includes(currentUserId) ? "heart" : "heart-outline"}
+            size={24}
+            color={post.likes && post.likes.includes(currentUserId) ? "red" : colors.text}
+          />
           <Text style={[styles.actionText, { color: colors.text }]}>{post.likes?.length || 0}</Text>
         </TouchableOpacity>
 
@@ -179,11 +222,10 @@ const Userprofile = () => {
     </View>
   );
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!id) return;
-      try {
-        const token = await AsyncStorage.getItem("token");
+  const fetchData = async () => {
+    if (!id) return;
+    try {
+      const token = await AsyncStorage.getItem("token");
         
         // Fetch posts
         const postsRes = await fetch(`${BASE_URL}/api/posts/user/${id}`, {
@@ -202,6 +244,9 @@ const Userprofile = () => {
           setFollowingCount(targetData.following?.length || 0);
         }
 
+        const storedEmail = await AsyncStorage.getItem("userEmail");
+        if (storedEmail) setMyEmail(storedEmail);
+
         // Fetch current user to check if following
         const profileRes = await fetch(`${BASE_URL}/api/auth/profile`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -209,16 +254,25 @@ const Userprofile = () => {
         const profileData = await profileRes.json();
         if (profileRes.ok) {
           if (profileData._id) setCurrentUserId(profileData._id);
+          if (profileData.email) setMyEmail(profileData.email);
           const isFollowing = profileData.following?.includes(id);
           setFollowing(!!isFollowing);
         }
 
-      } catch (err) {
-        console.log("Error fetching user data:", err);
-      }
-    };
+    } catch (err) {
+      console.log("Error fetching user data:", err);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, [id]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  };
 
   const toggleFollow = async () => {
     try {
@@ -239,7 +293,13 @@ const Userprofile = () => {
 
   return (
     <>
-      <ScrollView style={[styles.container, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={[styles.container, { backgroundColor: colors.background }]} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => router.back()} style={{ padding: 5 }}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />
@@ -298,7 +358,7 @@ const Userprofile = () => {
           onPress={() =>
             router.push({
               pathname: "/stack/inbox",
-              params: { chatPartnerEmail: email, chatPartnerName: name },
+              params: { chatPartnerEmail: email, chatPartnerName: name, chatPartnerProfilePic: paramsProfilePic },
             })
           }
         >
@@ -311,18 +371,6 @@ const Userprofile = () => {
         {posts.map((post, index) => (
           <TouchableOpacity key={post._id || index} onPress={() => setSelectedPost(post)} style={styles.postContainer}>
             <Image source={{ uri: post.image }} style={styles.gridImage} />
-            {post.caption ? (
-              <Text style={[styles.caption, { color: colors.text }]} numberOfLines={2}>
-                {post.caption}
-              </Text>
-            ) : null}
-            <View style={styles.gridActionRow}>
-               <Ionicons name={post.likes && post.likes.length > 0 ? "heart" : "heart-outline"} size={14} color={post.likes && post.likes.length > 0 ? "red" : colors.text} />
-               <Text style={[styles.gridActionText, { color: colors.text }]}>{post.likes?.length || 0}</Text>
-               <View style={{width: 10}} />
-               <Ionicons name="chatbubble-outline" size={14} color={colors.text} />
-               <Text style={[styles.gridActionText, { color: colors.text }]}>{post.comments?.length || 0}</Text>
-            </View>
           </TouchableOpacity>
         ))}
       </View>
@@ -490,17 +538,17 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 15,
-    justifyContent: "space-between",
+    marginHorizontal: -10,
   },
   postContainer: {
-    width: "31%",
-    marginBottom: 15,
+    width: width / 3 - 2,
+    height: width / 3 - 2,
+    margin: 1,
   },
   gridImage: {
     width: "100%",
-    aspectRatio: 1,
-    borderRadius: 12,
+    height: "100%",
+    borderRadius: 2,
     backgroundColor: "#eee",
   },
   caption: {

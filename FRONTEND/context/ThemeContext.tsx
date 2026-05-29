@@ -16,17 +16,17 @@ interface ThemeContextType {
 }
 
 const lightColors = {
-  background: '#cbbfbfff',
-  text: '#292323',
-  card: '#fff',
-  primary: '#007bff',
-  border: '#ddd',
+  background: '#ffffffff',
+  text: '#000000ff',
+  card: '#fffafaff',
+  primary: '#9d5fb8ff',
+  border: '#c1bcffff',
 };
 
 const darkColors = {
-  background: '#413e3eff',
+  background: '#000000ff',
   text: '#ffffff',
-  card: '#1e1e1e',
+  card: '#202a09ff',
   primary: '#0a84ff',
   border: '#333',
 };

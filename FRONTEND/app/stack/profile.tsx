@@ -15,6 +15,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
@@ -33,10 +34,32 @@ export default function ProfileScreen() {
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [userId, setUserId] = useState<string>("");
+  const [myEmail, setMyEmail] = useState<string>("");
 
   const [selectedPost, setSelectedPost] = useState<any>(null);
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
+  const [expandedComments, setExpandedComments] = useState<{ [key: string]: boolean }>({});
+
+  const toggleComments = (postId: string) => {
+    setExpandedComments(prev => ({
+      ...prev,
+      [postId]: !prev[postId]
+    }));
+  };
+
+  const handleUserProfileNav = (targetUser: any) => {
+    if (!targetUser) return;
+    if (targetUser._id === userId || (targetUser.email && targetUser.email === myEmail)) {
+      setSelectedPost(null);
+    } else {
+      setSelectedPost(null);
+      router.push({
+        pathname: "/stack/userprofile",
+        params: { id: targetUser._id, name: targetUser.name, email: targetUser.email, profilePic: targetUser.profilePic },
+      });
+    }
+  };
 
   const [bio, setBio] = useState("Less perfection, more authenticity. ✨");
   const [isMenuVisible, setIsMenuVisible] = useState(false);
@@ -49,51 +72,61 @@ export default function ProfileScreen() {
   const [isListModalVisible, setIsListModalVisible] = useState(false);
   const [modalListType, setModalListType] = useState<"followers" | "following">("followers");
   const [modalListData, setModalListData] = useState<any[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadProfile = async () => {
+    try {
+      const storedName = await AsyncStorage.getItem("userName");
+      if (storedName) setName(storedName);
+      const storedEmail = await AsyncStorage.getItem("userEmail");
+      if (storedEmail) setMyEmail(storedEmail);
+
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+
+      // Fetch user profile to get profilePic
+      const profileRes = await fetch(`${BASE_URL}/api/auth/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        if (profileData._id) setUserId(profileData._id);
+        if (profileData.email) setMyEmail(profileData.email);
+        if (profileData.name) {
+          setName(profileData.name);
+          setNewName(profileData.name);
+        }
+        if (profileData.profilePic) setProfilePic(profileData.profilePic);
+        if (profileData.bio) {
+          setBio(profileData.bio);
+          setNewBio(profileData.bio);
+        }
+        setFollowersCount(profileData.followers?.length || 0);
+        setFollowingCount(profileData.following?.length || 0);
+      }
+
+      // Fetch user posts
+      const res = await fetch(`${BASE_URL}/api/posts/my-posts`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const postData = await res.json();
+      if (Array.isArray(postData)) {
+        setPosts(postData);
+      }
+    } catch (err) {
+      console.log("Error loading profile:", err);
+    }
+  };
 
   useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const storedName = await AsyncStorage.getItem("userName");
-        if (storedName) setName(storedName);
-
-        const token = await AsyncStorage.getItem("token");
-        if (!token) return;
-
-        // Fetch user profile to get profilePic
-        const profileRes = await fetch(`${BASE_URL}/api/auth/profile`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (profileRes.ok) {
-          const profileData = await profileRes.json();
-          if (profileData._id) setUserId(profileData._id);
-          if (profileData.name) {
-            setName(profileData.name);
-            setNewName(profileData.name);
-          }
-          if (profileData.profilePic) setProfilePic(profileData.profilePic);
-          if (profileData.bio) {
-             setBio(profileData.bio);
-             setNewBio(profileData.bio);
-          }
-          setFollowersCount(profileData.followers?.length || 0);
-          setFollowingCount(profileData.following?.length || 0);
-        }
-
-        // Fetch user posts
-        const res = await fetch(`${BASE_URL}/api/posts/my-posts`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const postData = await res.json();
-        if (Array.isArray(postData)) {
-          setPosts(postData);
-        }
-      } catch (err) {
-        console.log("Error loading profile:", err);
-      }
-    };
-
     loadProfile();
   }, []);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadProfile();
+    setRefreshing(false);
+  };
 
   const fetchFollowList = async (type: "followers" | "following") => {
     if (!userId) return;
@@ -216,9 +249,9 @@ export default function ProfileScreen() {
       const token = await AsyncStorage.getItem("token");
       const res = await fetch(`${BASE_URL}/api/posts/${postId}/comment`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}` 
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({ text: commentText }),
       });
@@ -253,41 +286,41 @@ export default function ProfileScreen() {
       const data = await res.json();
       if (res.ok) {
         if (type === "name") {
-           setName(data.name);
-           await AsyncStorage.setItem("userName", data.name);
-           setIsEditNameVisible(false);
-           Alert.alert("Success", "Name updated successfully");
+          setName(data.name);
+          await AsyncStorage.setItem("userName", data.name);
+          setIsEditNameVisible(false);
+          Alert.alert("Success", "Name updated successfully");
         } else {
-           setBio(data.bio);
-           setIsEditBioVisible(false);
-           Alert.alert("Success", "Bio updated successfully");
+          setBio(data.bio);
+          setIsEditBioVisible(false);
+          Alert.alert("Success", "Bio updated successfully");
         }
       } else {
         Alert.alert("Error", data.message || "Failed to update");
       }
     } catch (err) {
-       console.log("Update error", err);
-       Alert.alert("Error", "Something went wrong");
+      console.log("Update error", err);
+      Alert.alert("Error", "Something went wrong");
     }
   };
 
   const handleDeletePost = async (postId: string) => {
     const performDelete = async () => {
-       try {
-         const token = await AsyncStorage.getItem("token");
-         const res = await fetch(`${BASE_URL}/api/posts/${postId}`, {
-           method: "DELETE",
-           headers: { Authorization: `Bearer ${token}` }
-         });
-         if (res.ok) {
-           setPosts(posts.filter(p => p._id !== postId));
-           Alert.alert("Success", "Post deleted");
-         } else {
-           Alert.alert("Error", "Could not delete post");
-         }
-       } catch (err) {
-         console.log("Delete error", err);
-       }
+      try {
+        const token = await AsyncStorage.getItem("token");
+        const res = await fetch(`${BASE_URL}/api/posts/${postId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          setPosts(posts.filter(p => p._id !== postId));
+          Alert.alert("Success", "Post deleted");
+        } else {
+          Alert.alert("Error", "Could not delete post");
+        }
+      } catch (err) {
+        console.log("Delete error", err);
+      }
     };
 
     if (Platform.OS === 'web') {
@@ -315,6 +348,13 @@ export default function ProfileScreen() {
         <Text style={[styles.postUsername, { color: colors.text }]}>{post.user?.name || name}</Text>
       </View>
 
+      {/* Caption */}
+      <View style={styles.captionContainer}>
+        <Text style={[styles.captionText, { color: colors.text }]}>
+          {post.caption}
+        </Text>
+      </View>
+
       {/* Post Image */}
       <Image
         source={{
@@ -323,29 +363,40 @@ export default function ProfileScreen() {
         style={styles.fullPostImage}
       />
 
-      {/* Caption */}
-      <View style={styles.captionContainer}>
-        <Text style={[styles.captionText, { color: colors.text }]}>
-          <Text style={[styles.usernameBold, { color: colors.text }]}>{post.user?.name || name}</Text> {post.caption}
-        </Text>
-      </View>
+
 
       {/* Render Comments */}
       {post.comments && post.comments.length > 0 && (
         <View style={styles.commentsList}>
-          {post.comments.slice(-2).map((c: any, index: number) => (
+          {(expandedComments[post._id] ? post.comments : post.comments.slice(-2)).map((c: any, index: number) => (
             <Text key={index} style={[styles.commentText, { color: colors.text }]}>
-              <Text style={[styles.usernameBold, { color: colors.text }]}>{c.user?.name}</Text> {c.text}
+              <Text
+                style={[styles.usernameBold, { color: colors.text }]}
+                onPress={() => handleUserProfileNav(c.user)}
+              >
+                {c.user?.name || "Unknown"}
+              </Text>{" "}
+              {c.text}
             </Text>
           ))}
-          {post.comments.length > 2 && <Text style={styles.viewAllText}>View all {post.comments.length} comments</Text>}
+          {post.comments.length > 2 && (
+            <TouchableOpacity onPress={() => toggleComments(post._id)}>
+              <Text style={styles.viewAllText}>
+                {expandedComments[post._id] ? "Hide comments" : `View all ${post.comments.length} comments`}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
       {/* Like & Comment Actions */}
       <View style={styles.actionRow}>
         <TouchableOpacity onPress={() => handleLike(post._id)} style={styles.actionButton}>
-          <Ionicons name={post.likes && post.likes.length > 0 ? "heart" : "heart-outline"} size={24} color={post.likes && post.likes.length > 0 ? "red" : colors.text} />
+          <Ionicons
+            name={post.likes && post.likes.includes(userId) ? "heart" : "heart-outline"}
+            size={24}
+            color={post.likes && post.likes.includes(userId) ? "red" : colors.text}
+          />
           <Text style={[styles.actionText, { color: colors.text }]}>{post.likes?.length || 0}</Text>
         </TouchableOpacity>
 
@@ -360,13 +411,13 @@ export default function ProfileScreen() {
         <View style={styles.commentInputRow}>
           <TextInput
             style={[styles.commentInput, { color: colors.text, borderColor: colors.border }]}
-            placeholder="Add a comment..."
+            placeholder="criticize or praise..."
             placeholderTextColor={colors.text}
             value={commentText}
             onChangeText={setCommentText}
           />
           <TouchableOpacity onPress={() => submitComment(post._id)}>
-            <Text style={styles.submitCommentText}>Post</Text>
+            <Text style={styles.submitCommentText}>Tell</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -375,6 +426,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* My profile text */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -390,8 +442,15 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      {/* my profile section */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <View style={styles.profileSection}>
+
           <TouchableOpacity onPress={changeProfilePic} activeOpacity={0.8} style={{ position: "relative" }}>
             <Image
               source={{
@@ -418,10 +477,14 @@ export default function ProfileScreen() {
               <Text style={[styles.statNumber, { color: colors.text }]}>{followingCount}</Text>
               <Text style={styles.statLabel}>Following</Text>
             </TouchableOpacity>
+
+          </View>
+          <View>
           </View>
         </View>
 
-        <View style={styles.grid}>
+        <View style={[styles.grid, { alignSelf: "stretch" }]}>
+
           {posts.map((post, index) => (
             <TouchableOpacity key={post._id || index} onPress={() => deleteMode ? handleDeletePost(post._id) : setSelectedPost(post)} style={styles.postContainer}>
               <Image
@@ -433,23 +496,11 @@ export default function ProfileScreen() {
                   <Ionicons name="trash" size={20} color="white" />
                 </View>
               )}
-              {post.caption ? (
-                <Text style={[styles.caption, { color: colors.text }]} numberOfLines={2}>
-                  {post.caption}
-                </Text>
-              ) : null}
-              <View style={styles.gridActionRow}>
-                 <Ionicons name={post.likes && post.likes.length > 0 ? "heart" : "heart-outline"} size={14} color={post.likes && post.likes.length > 0 ? "red" : colors.text} />
-                 <Text style={[styles.gridActionText, { color: colors.text }]}>{post.likes?.length || 0}</Text>
-                 <View style={{width: 10}} />
-                 <Ionicons name="chatbubble-outline" size={14} color={colors.text} />
-                 <Text style={[styles.gridActionText, { color: colors.text }]}>{post.comments?.length || 0}</Text>
-              </View>
             </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
-
+      {/* popup or modal which comes while we click on the post .  */}
       <Modal visible={!!selectedPost} animationType="slide" onRequestClose={() => setSelectedPost(null)}>
         <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
@@ -516,17 +567,11 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* Menu Options Modal */}
-      <Modal visible={isMenuVisible} transparent animationType="fade" onRequestClose={() => setIsMenuVisible(false)}>
+      <Modal visible={isMenuVisible} transparent animationType="slide" onRequestClose={() => setIsMenuVisible(false)}>
         <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setIsMenuVisible(false)}>
           <View style={[styles.menuContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <TouchableOpacity style={styles.menuOption} onPress={() => { setIsMenuVisible(false); setIsEditNameVisible(true); }}>
-              <Text style={{ color: colors.text }}>Edit Name</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.menuOption} onPress={() => { setIsMenuVisible(false); setIsEditBioVisible(true); }}>
-              <Text style={{ color: colors.text }}>Edit Bio</Text>
-            </TouchableOpacity>
             <TouchableOpacity style={styles.menuOption} onPress={() => { setIsMenuVisible(false); setDeleteMode(!deleteMode); }}>
-              <Text style={{ color: deleteMode ? "gray" : "red" }}>{deleteMode ? "Done Deleting" : "Edit Post (Delete)"}</Text>
+              <Text style={{ color: deleteMode ? "gray" : "red" }}>{deleteMode ? "Done Editing" : "Edit Post"}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -539,22 +584,22 @@ export default function ProfileScreen() {
             <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 15 }]}>Edit Name (Once every 3 months)</Text>
             <TextInput style={[styles.editInput, { color: colors.text, borderColor: colors.border }]} value={newName} onChangeText={setNewName} placeholderTextColor={colors.text} />
             <View style={styles.editActions}>
-              <TouchableOpacity onPress={() => setIsEditNameVisible(false)}><Text style={{color: 'gray'}}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => handleUpdateProfile("name")}><Text style={{color: colors.primary, fontWeight: 'bold'}}>Save</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => setIsEditNameVisible(false)}><Text style={{ color: 'gray' }}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => handleUpdateProfile("name")}><Text style={{ color: colors.primary, fontWeight: 'bold' }}>Save</Text></TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
       {/* Edit Bio Modal */}
-      <Modal visible={isEditBioVisible} transparent animationType="slide">
+      <Modal visible={isEditBioVisible} transparent animationType="fade">
         <View style={styles.modalOverlayCenter}>
           <View style={[styles.editModal, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.modalTitle, { color: colors.text, marginBottom: 15 }]}>Edit Bio</Text>
             <TextInput style={[styles.editInput, { color: colors.text, borderColor: colors.border }]} value={newBio} onChangeText={setNewBio} placeholderTextColor={colors.text} multiline />
             <View style={styles.editActions}>
-              <TouchableOpacity onPress={() => setIsEditBioVisible(false)}><Text style={{color: 'gray'}}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => handleUpdateProfile("bio")}><Text style={{color: colors.primary, fontWeight: 'bold'}}>Save</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => setIsEditBioVisible(false)}><Text style={{ color: 'gray' }}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => handleUpdateProfile("bio")}><Text style={{ color: colors.primary, fontWeight: 'bold' }}>Save</Text></TouchableOpacity>
             </View>
           </View>
         </View>
@@ -615,6 +660,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     width: "100%",
     marginTop: 20,
+    marginBottom: 20,
     paddingHorizontal: 20,
   },
   statBox: {
@@ -632,17 +678,16 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 15,
-    justifyContent: "space-between",
   },
   postContainer: {
-    width: "31%",
-    marginBottom: 15,
+    width: width / 3 - 2,
+    height: width / 3 - 2,
+    margin: 1,
   },
   gridImage: {
     width: "100%",
-    aspectRatio: 1, // Make it a square thumbnail
-    borderRadius: 12,
+    height: "100%",
+    borderRadius: 2,
     backgroundColor: "#eee",
   },
   caption: {
@@ -689,7 +734,7 @@ const styles = StyleSheet.create({
   postHeader: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 15,
+    padding: 2,
   },
   profileAvatar: {
     width: 40,
@@ -708,7 +753,7 @@ const styles = StyleSheet.create({
   captionContainer: {
     paddingHorizontal: 15,
     paddingTop: 10,
-    paddingBottom: 5,
+    paddingBottom: 10,
   },
   captionText: {
     fontSize: 14,
@@ -719,13 +764,14 @@ const styles = StyleSheet.create({
     color: "#000",
   },
   commentsList: {
-    paddingHorizontal: 15,
+    paddingHorizontal: 12,
     paddingBottom: 10,
   },
   commentText: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#444",
     marginBottom: 2,
+    marginTop: 3,
   },
   viewAllText: {
     fontSize: 13,
@@ -803,7 +849,7 @@ const styles = StyleSheet.create({
     color: "gray",
     marginTop: 10,
   },
-  menuOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "flex-start", alignItems: "flex-end", paddingTop: 50, paddingRight: 20 },
+  menuOverlay: { flex: 1, backgroundColor: "rgba(174, 174, 174, 0.1)", justifyContent: "flex-start", alignItems: "flex-end", paddingTop: 5, paddingRight: 20 },
   menuContainer: { width: 150, borderRadius: 8, borderWidth: 1, overflow: "hidden", elevation: 5 },
   menuOption: { padding: 15, borderBottomWidth: 1, borderBottomColor: "#eee" },
   modalOverlayCenter: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },

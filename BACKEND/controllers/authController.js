@@ -198,16 +198,7 @@ export const updateProfilePic = async (req, res) => {
       req.file.secure_url ||
       req.file.url;
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-      port: Number(process.env.EMAIL_PORT) || 587,
-      secure: false,
-      family: 4,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+
 
     const user = await User.findByIdAndUpdate(
       req.user.id || req.user._id,

@@ -46,7 +46,7 @@ const RootLayout = () => {
         }}
       />
 
-      <Tabs.Screen
+      <Tabs.Screen  
         name="menu"
         options={{
           title: "Menu",

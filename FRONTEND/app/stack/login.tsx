@@ -9,19 +9,33 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View, 
+  View,
   ScrollView,
   Alert,
+  RefreshControl,
+  ActivityIndicator,
 } from "react-native";
 import { BASE_URL } from "@/config/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuth } from "../../context/AuthContext";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const router = useRouter();
+  const { setUser } = useAuth();
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    setEmail("");
+    setPassword("");
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setRefreshing(false);
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -29,6 +43,7 @@ export default function LoginScreen() {
       return;
     }
 
+    setLoading(true);
     try {
       const response = await fetch(`${BASE_URL}/api/auth/login`, {
         method: "POST",
@@ -37,11 +52,11 @@ export default function LoginScreen() {
       });
 
       const data = await response.json();
-      
+
 
       if (response.ok) {
         // Store email in AsyncStorage
-        await AsyncStorage.setItem("userEmail", email); 
+        await AsyncStorage.setItem("userEmail", email);
         // Optionally store name too
         await AsyncStorage.setItem("userName", data.user.name);
         //store token for authenticated requests
@@ -54,6 +69,9 @@ export default function LoginScreen() {
         const testName = await AsyncStorage.getItem("userName");
         console.log("Saved name:", testName);
 
+        // Update the AuthContext user state
+        setUser({ email, token: data.token });
+
         Alert.alert("Success", data.message);
 
         // tiny delay to make sure write finishes
@@ -65,6 +83,8 @@ export default function LoginScreen() {
     } catch (err) {
       console.log(err);
       Alert.alert("Error", "Something went wrong");
+    } finally {
+      setLoading(false);
     }
   };
   return (
@@ -82,6 +102,9 @@ export default function LoginScreen() {
           }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
         >
           <View style={styles.inner}>
             {/* Logo Section */}
@@ -131,7 +154,7 @@ export default function LoginScreen() {
                 >
                   <Ionicons
                     name={passwordVisible ? "eye-outline" : "eye-off-outline"}
-                      size={22}
+                    size={22}
                     color="#7D8699"
                   />
                 </TouchableOpacity>
@@ -139,8 +162,12 @@ export default function LoginScreen() {
             </View>
 
             {/* Login Button */}
-            <TouchableOpacity style={styles.loginBtn} onPress={handleLogin}>
-              <Text style={styles.loginBtnText}>Login</Text>
+            <TouchableOpacity style={styles.loginBtn} onPress={handleLogin} disabled={loading}>
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.loginBtnText}>Login</Text>
+              )}
             </TouchableOpacity>
 
             {/* Footer */}
@@ -164,12 +191,26 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   inner: { paddingHorizontal: 25 },
   logoSection: { alignItems: "center", marginBottom: 20 },
-  brandName: { fontSize: 22, fontWeight: "800" },
+  brandName: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#ddc7ffff",
+    textShadowColor: "rgba(74, 0, 247, 0.8)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 12,
+    letterSpacing: 5,
+  },
+
   welcomeSection: { alignItems: "center", marginBottom: 30 },
+
   welcomeTitle: { fontSize: 28, fontWeight: "800", marginBottom: 5 },
+
   welcomeSubtitle: { fontSize: 15, color: "#7D8699" },
+
   form: { marginBottom: 20 },
+
   label: { fontSize: 14, fontWeight: "600", marginBottom: 8, marginTop: 15 },
+  
   input: {
     height: 55,
     borderWidth: 1,
@@ -188,7 +229,7 @@ const styles = StyleSheet.create({
   },
   passwordInput: { flex: 1, paddingHorizontal: 20 },
   loginBtn: {
-    backgroundColor: "#318CE7",
+    backgroundColor: "#31e7c9ff",
     height: 60,
     borderRadius: 30,
     justifyContent: "center",

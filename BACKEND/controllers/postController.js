@@ -32,7 +32,7 @@ export const getUserPosts = async (req, res) => {
   try {
     const posts = await Post.find({ user: req.user.id || req.user._id })
       .populate("user", "name email profilePic")
-      .populate("comments.user", "name")
+      .populate("comments.user", "name email profilePic")
       .sort({ createdAt: -1 });
     res.status(200).json(posts);
   } catch (error) {
@@ -44,7 +44,7 @@ export const getPostsByUser = async (req, res) => {
   try {
     const posts = await Post.find({ user: req.params.userId })
       .populate("user", "name email profilePic")
-      .populate("comments.user", "name")
+      .populate("comments.user", "name email profilePic")
       .sort({ createdAt: -1 });
     res.status(200).json(posts);
   } catch (error) {
@@ -56,7 +56,7 @@ export const getAllPosts = async (req, res) => {
   try {
     const posts = await Post.find()
       .populate("user", "name email profilePic")
-      .populate("comments.user", "name")
+      .populate("comments.user", "name email profilePic")
       .sort({ createdAt: -1 });
     res.status(200).json(posts);
   } catch (error) {
@@ -82,7 +82,7 @@ export const likePost = async (req, res) => {
 
     await post.save();
     await post.populate("user", "name email profilePic");
-    await post.populate("comments.user", "name");
+    await post.populate("comments.user", "name email profilePic");
     res.status(200).json(post);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -108,7 +108,7 @@ export const addComment = async (req, res) => {
     await post.save();
 
     await post.populate("user", "name email profilePic");
-    await post.populate("comments.user", "name");
+    await post.populate("comments.user", "name email profilePic");
 
     res.status(201).json(post);
   } catch (error) {

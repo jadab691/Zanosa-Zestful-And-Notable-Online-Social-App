@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TextInput, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, TextInput, StyleSheet, Image, TouchableOpacity, ActivityIndicator, RefreshControl } from "react-native";
 import React, { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { BASE_URL } from "../../config/api";
@@ -11,34 +11,42 @@ const Search = () => {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
+  const fetchUsers = async (isRefreshing = false) => {
+    if (!query) {
+      setResults([]);
+      return;
+    }
+    if (!isRefreshing) setLoading(true);
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const res = await fetch(`${BASE_URL}/api/auth/users?search=${encodeURIComponent(query)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setResults(data);
+      } else {
+        console.log("Search error", await res.text());
+      }
+    } catch (e) {
+      console.log(e);
+    }
+    if (!isRefreshing) setLoading(false);
+  };
+
   useEffect(() => {
-    const fetchUsers = async () => {
-      if (!query) {
-        setResults([]);
-        return;
-      }
-      setLoading(true);
-      try {
-        const token = await AsyncStorage.getItem("token");
-        const res = await fetch(`${BASE_URL}/api/auth/users?search=${encodeURIComponent(query)}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setResults(data);
-        } else {
-          console.log("Search error", await res.text());
-        }
-      } catch (e) {
-        console.log(e);
-      }
-      setLoading(false);
-    };
-    const timeout = setTimeout(fetchUsers, 300);
+    const timeout = setTimeout(() => fetchUsers(false), 300);
     return () => clearTimeout(timeout);
   }, [query]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchUsers(true);
+    setRefreshing(false);
+  };
 
   const goToProfile = (user) => {
     router.push({
@@ -68,7 +76,13 @@ const Search = () => {
 
       {/* Results */}
       {loading && <ActivityIndicator size="large" style={{ marginTop: 20 }} />}
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.results}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        style={styles.results}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {results.map((user) => (
           <TouchableOpacity key={user._id} style={[styles.resultItem, { borderBottomColor: colors.border }]} onPress={() => goToProfile(user)}>
             <Image source={{ uri: user.profilePic || "https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg" }} style={styles.avatar} />

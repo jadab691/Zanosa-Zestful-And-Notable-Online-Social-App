@@ -24,11 +24,11 @@ const Menu = () => {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <Text style={[styles.header, { color: colors.text }]}>Menu</Text>
+      <Text style={[styles.header, { color: colors.text }]}>Zanosa Menu</Text>
 
       {/* Menu Items */}
       <MenuItem
-        icon="person-outline"
+        icon="person-outline" 
         label="Profile"
         onPress={() => router.push("/stack/profile")}
         themeColors={colors}
@@ -42,19 +42,19 @@ const Menu = () => {
       <MenuItem
         icon="information-circle-outline"
         label="About"
-        onPress={undefined}
+        onPress={() => router.push("/stack/about")}
         themeColors={colors}
       />
       <MenuItem 
         icon="call-outline" 
         label="Contact" 
-        onPress={undefined} 
+        onPress={() => router.push("/stack/contact")} 
         themeColors={colors} 
       />
       <MenuItem
         icon="alert-circle-outline"
         label="Report a Problem"
-        onPress={undefined}
+        onPress={() => router.push("/stack/report")}
         themeColors={colors}
       />
 

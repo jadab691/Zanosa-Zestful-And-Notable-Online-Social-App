@@ -6,8 +6,19 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../context/ThemeContext";
 
 // Reusable Menu Item
-// @ts-ignore
-const MenuItem = ({ icon, label, color, onPress, themeColors }) => {
+const MenuItem = ({
+  icon,
+  label,
+  color,
+  onPress,
+  themeColors,
+}: {
+  icon: any;
+  label: string;
+  color?: string;
+  onPress: () => void;
+  themeColors: any;
+}) => {
   const itemColor = color || themeColors.text;
   return (
     <Pressable style={[styles.menuItem, { backgroundColor: themeColors.card }]} onPress={onPress}>
@@ -55,6 +66,12 @@ const Menu = () => {
         icon="alert-circle-outline"
         label="Report a Problem"
         onPress={() => router.push("/stack/report")}
+        themeColors={colors}
+      />
+      <MenuItem
+        icon="heart-outline"
+        label="Support us by donate"
+        onPress={() => router.push("/stack/donate" as any)}
         themeColors={colors}
       />
 

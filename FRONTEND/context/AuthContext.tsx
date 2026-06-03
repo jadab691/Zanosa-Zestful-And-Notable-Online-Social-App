@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { API } from "../config/api";
+import API from "../config/api";
 
 type User = {
   email: string;

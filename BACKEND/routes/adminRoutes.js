@@ -2,6 +2,7 @@ import express from "express";
 import User from "../models/users.js";
 import Post from "../models/post.js";
 import Admin from "../models/admin.js";
+import Donation from "../models/donation.js";
 
 const router = express.Router();
 
@@ -110,6 +111,40 @@ router.delete("/posts/:id", async (req, res) => {
         }
         
         res.json({ message: "Post deleted successfully" });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// GET all donations sorted by date
+router.get("/donations", async (req, res) => {
+    try {
+        const donations = await Donation.find().sort({ createdAt: -1 });
+        res.json(donations);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// PATCH update donation status (approve/reject)
+router.patch("/donations/:id", async (req, res) => {
+    try {
+        const { status } = req.body;
+        if (!["success", "failed", "pending"].includes(status)) {
+            return res.status(400).json({ message: "Invalid status value" });
+        }
+
+        const donation = await Donation.findByIdAndUpdate(
+            req.params.id,
+            { status },
+            { new: true }
+        );
+
+        if (!donation) {
+            return res.status(404).json({ message: "Donation not found" });
+        }
+
+        res.json({ message: `Donation status updated to ${status}`, donation });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }

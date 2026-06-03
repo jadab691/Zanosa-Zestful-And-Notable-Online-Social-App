@@ -11,9 +11,15 @@ export default function App() {
   const [users, setUsers] = useState([]);
   const [posts, setPosts] = useState([]);
   const [reports, setReports] = useState([]);
+  const [donations, setDonations] = useState([]);
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [adminUser, setAdminUser] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return localStorage.getItem("adminLoggedIn") === "true";
+  });
+  const [adminUser, setAdminUser] = useState(() => {
+    const saved = localStorage.getItem("adminUser");
+    return saved ? JSON.parse(saved) : null;
+  });
 
   //here just get the totoal users , totoal post  . ar bakita use korsi na . 
   useEffect(() => {
@@ -57,6 +63,31 @@ export default function App() {
     fetchPosts();
   }, []);
 
+  // Get all donations
+  useEffect(() => {
+    const fetchDonations = async () => {
+      try {
+        const res = await axios.get("http://localhost:5700/api/admin/donations");
+        setDonations(res.data);
+      } catch (err) {
+        console.log("Failed to fetch donations:", err);
+      }
+    };
+    fetchDonations();
+  }, []);
+
+  const handleUpdateDonationStatus = async (donationId, status) => {
+    if (window.confirm(`Are you sure you want to mark this donation as ${status}?`)) {
+      try {
+        await axios.patch(`http://localhost:5700/api/admin/donations/${donationId}`, { status });
+        setDonations(prev => prev.map(d => d._id === donationId ? { ...d, status } : d));
+      } catch (err) {
+        console.error("Failed to update status:", err);
+        alert("Failed to update donation status.");
+      }
+    }
+  };
+
   const handleDeleteUser = async (userId) => {
     if (window.confirm("Are you sure you want to delete this user and all of their posts?")) {
       try {
@@ -88,10 +119,16 @@ export default function App() {
     }
   };
 
+  const totalDonationAmount = donations
+    .filter((d) => d.status === "success")
+    .reduce((acc, curr) => acc + curr.amount, 0);
+
   if (!isLoggedIn) {
     return <Login onLogin={(user) => {
       setIsLoggedIn(true);
       setAdminUser(user);
+      localStorage.setItem("adminLoggedIn", "true");
+      localStorage.setItem("adminUser", JSON.stringify(user));
     }} />;
   }
 
@@ -130,6 +167,13 @@ export default function App() {
           >
             Reports
           </button>
+
+          <button
+            onClick={() => setPage("donations")}
+            className="block w-full text-left px-3 py-2 rounded hover:bg-gray-700"
+          >
+            Donations
+          </button>
         </nav>
       </div>
 
@@ -146,6 +190,8 @@ export default function App() {
             onClick={() => {
               setIsLoggedIn(false);
               setAdminUser(null);
+              localStorage.removeItem("adminLoggedIn");
+              localStorage.removeItem("adminUser");
             }}
             className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition-colors duration-200 cursor-pointer"
           >
@@ -155,7 +201,7 @@ export default function App() {
 
         {/* Dashboard */}
         {page === "dashboard" && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
 
             <div className="bg-white p-5 rounded shadow">
               <h3 className="text-gray-500">Users</h3>
@@ -170,6 +216,11 @@ export default function App() {
             <div className="bg-white p-5 rounded shadow">
               <h3 className="text-gray-500">Reports</h3>
               <p className="text-2xl font-bold">0</p>
+            </div>
+
+            <div className="bg-white p-5 rounded shadow border-l-4 border-green-500">
+              <h3 className="text-gray-500">Total Donation</h3>
+              <p className="text-2xl font-bold text-green-600">{totalDonationAmount} ৳</p>
             </div>
 
           </div>
@@ -285,6 +336,84 @@ export default function App() {
           <div className="bg-white p-5 rounded shadow">
             <h3 className="text-lg font-semibold mb-3">Reports</h3>
             <p className="text-gray-500">Reported content will appear here</p>
+          </div>
+        )}
+
+        {/* Donations */}
+        {page === "donations" && (
+          <div className="bg-white p-5 rounded shadow overflow-x-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-gray-800">Donation History & Verification</h3>
+              <div className="bg-green-50 text-green-800 px-4 py-2 rounded font-semibold text-sm">
+                Total Revenue: {totalDonationAmount} ৳
+              </div>
+            </div>
+
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50 text-left text-xs uppercase tracking-wider text-gray-500 font-semibold">
+                <tr>
+                  <th className="px-4 py-3">Sender</th>
+                  <th className="px-4 py-3">Amount</th>
+                  <th className="px-4 py-3">Transaction ID</th>
+                  <th className="px-4 py-3">Method</th>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {donations.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="text-center py-6 text-gray-500">No donations found</td>
+                  </tr>
+                ) : (
+                  donations.map((donation) => (
+                    <tr key={donation._id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium text-gray-900">
+                        <div>{donation.userName}</div>
+                        <div className="text-xs text-gray-500">{donation.userEmail}</div>
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-gray-900">{donation.amount} ৳</td>
+                      <td className="px-4 py-3 font-mono text-gray-700">{donation.trxID}</td>
+                      <td className="px-4 py-3 capitalize text-gray-600">
+                        {donation.paymentMethod === "online" ? "Online Gateway" : "bKash Manual"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {new Date(donation.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          donation.status === "success" ? "bg-green-100 text-green-800" :
+                          donation.status === "pending" ? "bg-yellow-100 text-yellow-800" :
+                          donation.status === "cancelled" ? "bg-gray-100 text-gray-800" :
+                          "bg-red-100 text-red-800"
+                        }`}>
+                          {donation.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right space-x-2">
+                        {donation.status === "pending" && donation.paymentMethod === "manual_bkash" && (
+                          <>
+                            <button
+                              onClick={() => handleUpdateDonationStatus(donation._id, "success")}
+                              className="bg-green-600 hover:bg-green-700 text-white text-xs font-medium px-3 py-1.5 rounded transition cursor-pointer"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleUpdateDonationStatus(donation._id, "failed")}
+                              className="bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-1.5 rounded transition cursor-pointer"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         )}
 
